@@ -9,13 +9,13 @@ save_file = True
 
 # for dataset in ["MNIST", "STL-10", "CIFAR10", "USPS"]:
 # for dataset in ["CIFAR10", "USPS"]:
-# for dataset in ["Wifi"]:
-for dataset in ["Cats-vs-dogs", "Weather", "Indian food", "Wifi"]:
+for dataset in ["Wifi"]:
+# for dataset in ["MNIST", "STL-10", "CIFAR10", "USPS", "Cats-vs-dogs", "Weather", "Indian food", "Wifi"]:
+#     for grid_width in [30, 40]:
     for grid_width in [20]:
-    # for grid_width in [30]:
-    #     for flag in [3, 5, 7]:
+        # for flag in [3, 5, 7]:
         for flag in ['all']:
-            max_tt = 20
+            max_tt = 1
             for tt in range(max_tt):
                 processed_data = "./processed_data"
                 tsne_result = "./tsne_result"
@@ -129,7 +129,7 @@ for dataset in ["Cats-vs-dogs", "Weather", "Indian food", "Wifi"]:
                         #             alpha_list2[i], alpha_list2[j] = alpha_list2[j], alpha_list2[i]
 
                         for op_type in ["base", "compact", "global", "local", "full"]:
-                        # for op_type in ["local"]:
+                        # for op_type in ["full"]:
                                 m1 = 0
                                 m2 = 5
                                 # if alpha+beta == 0:
@@ -171,7 +171,7 @@ for dataset in ["Cats-vs-dogs", "Weather", "Indian food", "Wifi"]:
                                 # row_asses_m, heat = BASolver.grid3(s_embeddings, s_labels, 'E')
                                 row_asses_m, t1, t2, new_labels, new_cost = Optimizer.grid(s_embeddings, s_labels, type, m1, m2, use_global, only_compact)
 
-                                show_labels = s_labels
+                                show_labels = new_labels
                                 show_labels = np.array(show_labels)
                                 tmp = np.full(row_asses_m.shape[0] - show_labels.shape[0], dtype='int', fill_value=flag)
                                 show_labels = np.concatenate((show_labels, tmp), axis=0)
@@ -184,7 +184,7 @@ for dataset in ["Cats-vs-dogs", "Weather", "Indian food", "Wifi"]:
                                 print("new_cost", new_cost)
                                 name = "\'" + dataset + "\'-" + str(grid_width) + "-" + str(flag) + "-" + type + "-" + op_type
                                 print(name, tt)
-                                new_cost = np.append(new_cost, [t1, t2], None)
+                                new_cost = np.append(new_cost, [t1+t2, t2], None)
 
                                 new_cost[0] = np.exp(-new_cost[0]/grid_width/grid_width)
                                 new_cost[1] = np.exp(-new_cost[1]/grid_width/grid_width)
@@ -196,7 +196,7 @@ for dataset in ["Cats-vs-dogs", "Weather", "Indian food", "Wifi"]:
                                     dict[name] += new_cost/max_tt
 
                                 Optimizer.show_grid(row_asses_m, show_labels, grid_width, file_path, showText, just_save=True)
-                                # Optimizer.show_grid(row_asses_m, show_labels, grid_width, "test13.png", showText)
+                                Optimizer.show_grid(row_asses_m, show_labels, grid_width, "test13.png", showText)
                                 # Optimizer.show_grid(row_asses_m, show_labels, grid_width, "test"+name+".png", showText)
                                 # Optimizer.show_grid(row_asses_m, s_labels, grid_width)
 

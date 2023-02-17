@@ -25,6 +25,15 @@ class gridOptimizer(object):
         # print('end KM')
         return row_asses, col_asses
 
+    def solveJV(self, cost_matrix):
+        row_asses = np.array(gridlayoutOpt.solveLap(cost_matrix, True, 50))
+        N = row_asses.shape[0]
+        col_asses = np.zeros(shape=N, dtype='int')
+        for i in range(N):
+            col_asses[row_asses[i]] = i
+        # print('end KM')
+        return row_asses, col_asses
+
     # DFS检查联通性
     def checkConnectDFS(self, row_asses, labels, x, y, lb, checked, num, square_len, connect):
         gid = x * square_len + y
@@ -120,8 +129,10 @@ class gridOptimizer(object):
 
             return ans_row_asses, best_cost
 
-        global_it = 3
+        compact_it = 3
+        global_it = 5
         if convex_type == "O":
+            compact_it = 0
             global_it = 0
 
         ans = row_asses
@@ -174,6 +185,7 @@ class gridOptimizer(object):
     # 生成gridlayout
     def grid(self, X_embedded: np.ndarray, labels: np.ndarray = None, type='E', maxit=10, maxit2=5, use_global=True, only_compact=False):
         # 初始化信息
+        start = time.time()
         ans = None
         best = 2147483647
         X_embedded -= X_embedded.min(axis=0)
@@ -274,6 +286,12 @@ class gridOptimizer(object):
                                       np.linspace(0, 1 - 1.0 / square_len, square_len))) \
             .reshape(-1, 2)
 
+        tmp = grids[:,0].copy()
+        grids[:,0] = grids[:,1]
+        grids[:,1] = tmp
+
+        # print(grids)
+
         original_cost_matrix = cdist(grids, X_embedded, "euclidean")
         # knn process
         dummy_points = np.ones((N - original_cost_matrix.shape[1], 2)) * 0.5
@@ -284,7 +302,8 @@ class gridOptimizer(object):
         cost_matrix = np.power(cost_matrix, 2)
 
         # row_asses, col_asses, info = fastlapjv(cost_matrix, k_value=50 if len(cost_matrix)>50 else len(cost_matrix))
-        row_asses, col_asses = self.solveKM(cost_matrix)
+        # row_asses, col_asses = self.solveKM(cost_matrix)
+        row_asses, col_asses = self.solveJV(cost_matrix)
         col_asses = col_asses[:num]
         # self.show_grid(row_asses, labels, square_len, 'new.png')
 
@@ -292,14 +311,20 @@ class gridOptimizer(object):
         ori_row_asses = row_asses.copy()
         ori_labels = labels.copy()
 
+        t0 = time.time()-start
         # 简单聚类
         print("start cluster")
-        labels = gridlayoutOpt.getClusters(ori_row_asses, labels)
-        maxLabel = np.array(labels).max()+1
+        labels = np.array(gridlayoutOpt.getClusters(ori_row_asses, labels))
+        maxLabel = labels.max()+1
         print("end cluster")
         # self.show_grid(row_asses, ori_labels, square_len, 'new0.png')
         # self.show_grid(row_asses, labels, square_len, 'new1.png')
         # return row_asses, 0, 0
+
+        # datas = np.load("T-base.npz")
+        # labels = datas['labels']
+        # row_asses = datas['row_asses']
+        # ori_row_asses = row_asses
 
         # 开始优化
         print("start optimize")
@@ -313,10 +338,17 @@ class gridOptimizer(object):
         print("--------------------------------------------------")
         print('time:', end - start)
 
+        # change_list = []
+        # for i in range(N):
+        #     if (ans[i]<num)and(labels[ans[i]]==2):
+        #         change_list.append(i)
+        # change_list = np.array(change_list)
+        # ans = self.translateAdjust(ori_row_asses, ans, labels, use_global, True, type, maxit, maxit2, change_list, np.array((-0.5, 0.5)))
+
         # self.show_grid(row_asses, labels, square_len, 'new2.png')
         # self.show_grid(row_asses, ori_labels, square_len, 'new3.png')
         # np.savez("tmp.npz", row_asses=row_asses, labels=labels)
-        return ans, t1, t2, labels, new_cost
+        return ans, t1, t0, labels, new_cost
 
     def translateAdjust(self, ori_row_asses, row_asses, labels, useGlobal=True, useLocal=True, convex_type="E", maxit=5, maxit2=2, change_list=np.array([]), translate=np.array([0, 0])):
         N = ori_row_asses.shape[0]
@@ -328,8 +360,8 @@ class gridOptimizer(object):
             bias = x*square_len
             for y in range(square_len):
                 gid = bias+y
-                X_embedded[ori_row_asses[gid]][0] = x
-                X_embedded[ori_row_asses[gid]][1] = y
+                X_embedded[ori_row_asses[gid]][0] = x*1.0/square_len
+                X_embedded[ori_row_asses[gid]][1] = y*1.0/square_len
 
         X_embedded[row_asses[change_list]] += translate
 
@@ -338,17 +370,24 @@ class gridOptimizer(object):
                                       np.linspace(0, 1 - 1.0 / square_len, square_len))) \
             .reshape(-1, 2)
 
+        tmp = grids[:, 0].copy()
+        grids[:, 0] = grids[:, 1]
+        grids[:, 1] = tmp
+
         cost_matrix = cdist(grids, X_embedded, "euclidean")
 
         cost_matrix = np.power(cost_matrix, 2)
 
         # row_asses, col_asses, info = fastlapjv(cost_matrix, k_value=50 if len(cost_matrix)>50 else len(cost_matrix))
-        new_ori_row_asses, col_asses = self.solveKM(cost_matrix)
+        new_ori_row_asses, col_asses = self.solveJV(cost_matrix)
         col_asses = col_asses[:num]
 
+        # self.show_grid(new_ori_row_asses, labels, square_len, 'new2.png')
+
         new_row_asses, _, _, _ = self.grid_op(new_ori_row_asses, new_ori_row_asses, labels, useGlobal, useLocal, convex_type, maxit, maxit2)
+        # print("done")
         change = np.ones(shape=N, dtype='bool')
-        new_row_asses = gridlayoutOpt.optimizeInnerCluster(ori_row_asses, new_row_asses, labels, change)
+        new_row_asses = np.array(gridlayoutOpt.optimizeInnerCluster(ori_row_asses, new_row_asses, labels, change))
         return new_row_asses
 
     # 检查凸性
@@ -374,12 +413,16 @@ class gridOptimizer(object):
             ax.add_patch(rect)
             return rect
 
+        from colors import MyColorMap
+        cm = MyColorMap()
+
         data = []
         num = math.ceil(square_len)
         for i in range(num - 1, -1, -1):
             row = []
             for j in range(num):
-                row.append(plt.cm.tab20(grid_labels[row_asses[num * i + j]]))
+                # row.append(plt.cm.tab20(grid_labels[row_asses[num * i + j]]))
+                row.append(cm.color(grid_labels[row_asses[num * i + j]]))
             data.append(row)
         plt.cla()
         plt.imshow(data)

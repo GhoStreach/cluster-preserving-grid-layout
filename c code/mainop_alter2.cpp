@@ -34,7 +34,7 @@ const std::vector<int> &_labels) {
     for(int i=0;i<N;i++)grid_asses[i] = _grid_asses[i];
     for(int i=0;i<num;i++)labels[i] = _labels[i];
 
-    getClustersArray(cluster_labels, maxLabel+5, 6, grid_asses, labels, N, num, square_len);
+    getClustersArray(cluster_labels, maxLabel+5, int(0.02*N), grid_asses, labels, N, num, square_len);
 
     std::vector<int> ret(num, 0);
     for(int i=0;i<num;i++)ret[i] = cluster_labels[i];
@@ -301,7 +301,7 @@ double alpha, double beta,
 bool alter=false, const std::vector<double> alter_best=std::vector<double>(3,1),
 int maxit=10) {
     double start = clock();
-    
+
     // ----------------------------------preprocess step start----------------------------------------
 
     int N = _grid_asses.size();
@@ -340,6 +340,7 @@ int maxit=10) {
         global_N = -1;
     }
 
+
     double *old_cost_matrix = new double[N*N];
     double *Compact_cost_matrix = new double[N*N];
     double *old_Convex_cost_matrix = new double[N*N];
@@ -365,6 +366,7 @@ int maxit=10) {
     std::vector<double> best_cost(4, 2147483647);    // full cost(loss) of the best ans
     double last_c_cost;    // connectivity cost(constraint) of the last ans
     std::vector<double> last_cost(4, 2147483647);    // full cost(loss) of the last ans
+    std::vector<double> last_cost2(4, 2147483647);    // full cost(loss) of the last ans
 
     getCompactCostMatrixArrayToArray(grid_asses, cluster_labels, Compact_cost_matrix, N, num, square_len, maxLabel);
 
@@ -382,6 +384,7 @@ int maxit=10) {
     if(!alter)best = last_cost[0];  //if fix alpha and beta, look for the ans with minist cost
     else best = 0;
     best_cost = last_cost;
+    last_cost2 = last_cost;
     // printf("cost %.6lf %.6lf %.6lf\n",last_cost[1], last_cost[2], last_cost[3]);
 
     c_best = N*checkConnectForAll(grid_asses, cluster_labels, checked, N, num, square_len, maxLabel, 4);
@@ -408,7 +411,7 @@ int maxit=10) {
 
     if((type!="E")&&(type!="T")&&(type!="2020")&&(type!="Global"))maxit = 0;
 
-    // information of triples measure to save and load 
+    // information of triples measure to save and load
     int *save_innerDict = new int[N*maxLabel];
     int *save_outerDict = new int[N*maxLabel*maxLabel];
     int *old_grid_asses = new int[N];
@@ -422,10 +425,42 @@ int maxit=10) {
         double start, tmp;
         start = clock();
 
+        if(type!="Global"){    // only adjust border
+            int rand_tmp = rand()%2;
+            for(int x1=0;x1<square_len;x1++) {    // grids[x1][y1]
+                int bias = x1*square_len;
+                for(int y1=0;y1<square_len;y1++) {
+                    int gid = bias+y1;
+                    change[gid] = _change[gid];
+                    if(change[gid]) {
+                        change[gid] = false;
+                        int lb = -1;
+                        if(grid_asses[gid]<num)lb = cluster_labels[grid_asses[gid]];
+                        for(int xx=-2;xx<=2;xx++) {    // grids[x1+xx][y1+yy]
+                            int x2 = x1+xx;
+                            if((x2<0)||(x2>=square_len))continue;
+                            int bias2 = x2*square_len;
+                            for(int yy=-2;yy<=2;yy++) {
+                                int y2 = y1+yy;
+                                if((y2<0)||(y2>=square_len))continue;
+                                int gid2 = bias2+y2;
+                                int lb2 = -1;
+                                if(grid_asses[gid2]<num)lb2 = cluster_labels[grid_asses[gid2]];
+                                if(lb2!=lb) {    // different cluters, means grids[x1][y1] is in border
+                                    change[gid] = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // get convexity cost matrix
         if(type=="E")
             getCostMatrixForEArrayToArray(grid_asses, cluster_labels, Convex_cost_matrix, N, num, square_len, maxLabel);
-        else if(type=="T") {    
+        else if(type=="T") {
 //            if(it<=1) {
             // printf("change num %d\n", change_num);
             if((it<=0)||(change_num>=N/30)) {    // too many changed grids
@@ -463,11 +498,19 @@ int maxit=10) {
             for(int i2=0;i2<N;i2++){
                 int i = bias+i2;
                 //new_cost_matrix[i] = (1-beta-alpha)*Similar_cost_matrix[i]+beta*Compact_cost_matrix[i]+alpha*(old_Convex_cost_matrix[i]+Convex_cost_matrix[i])+Cn_cost_matrix[i]*N*it/maxit;
+                a = 1/(it+1.0);
                 new_cost_matrix[i] = (1-beta-alpha)*Similar_cost_matrix[i]+beta*Compact_cost_matrix[i];
                 old_cost_matrix[i] = new_cost_matrix[i];
-                a = 1/(it+1.0);
-                old_Convex_cost_matrix[i] = old_Convex_cost_matrix[i]*(1-a) + alpha*Convex_cost_matrix[i]*a;
-                new_cost_matrix[i] += old_Convex_cost_matrix[i]+Cn_cost_matrix[i]*N*it/maxit;
+                if((type!="Global")||alter) {
+                    old_Convex_cost_matrix[i] = old_Convex_cost_matrix[i]*(1-a) + alpha*Convex_cost_matrix[i]*a;
+                    new_cost_matrix[i] += old_Convex_cost_matrix[i];
+
+//                    double tmp = old_Convex_cost_matrix[i];
+//                    old_Convex_cost_matrix[i] = alpha*Convex_cost_matrix[i];
+//                    new_cost_matrix[i] += (tmp+old_Convex_cost_matrix[i])/2;
+
+                    new_cost_matrix[i] += Cn_cost_matrix[i]*N*it/maxit;
+                }
             }
         }
 
@@ -477,37 +520,6 @@ int maxit=10) {
 
         start = clock();
 
-        if(type!="Global"){    // only adjust border
-            for(int x1=0;x1<square_len;x1++) {    // grids[x1][y1]
-                int bias = x1*square_len;
-                for(int y1=0;y1<square_len;y1++) {
-                    int gid = bias+y1;
-                    change[gid] = _change[gid];
-                    if(change[gid]) {
-                        change[gid] = false;
-                        int lb = -1;
-                        if(grid_asses[gid]<num)lb = cluster_labels[grid_asses[gid]];
-                        for(int xx=-2;xx<=2;xx++) {    // grids[x1+xx][y1+yy]
-                            int x2 = x1+xx;
-                            if((x2<0)||(x2>=square_len))continue;
-                            int bias2 = x2*square_len;
-                            for(int yy=-2;yy<=2;yy++) {
-                                int y2 = y1+yy;
-                                if((y2<0)||(y2>=square_len))continue;
-                                int gid2 = bias2+y2;
-                                int lb2 = -1;
-                                if(grid_asses[gid2]<num)lb2 = cluster_labels[grid_asses[gid2]];
-                                if(lb2!=lb) {    // different cluters, means grids[x1][y1] is in border
-                                    change[gid] = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
         std::vector<int> new_asses = solveBiMatchChange(new_cost_matrix, N, change, grid_asses);   // bi-graph match
 
         tmp = (clock()-start)/CLOCKS_PER_SEC;
@@ -540,11 +552,21 @@ int maxit=10) {
         else if(type=="Global")
             new_cost = checkCostForGlobal(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta);
 
-        if(!alter)cost = new_cost[0];  //固定参数时，取整体最优情况
+        if(!alter)cost = new_cost[0];
         else cost = 0;
 
         double c_cost = N*checkConnectForAll(grid_asses, cluster_labels, checked, N, num, square_len, maxLabel, 4);
 
+        if(alter&&(type=="Global")){
+//            printf("cost1 %.2lf %.2lf\n", new_cost[1], last_cost[1]);
+//            printf("cost2 %.2lf %.2lf\n", new_cost[2], last_cost[2]);
+            if((std::abs(new_cost[1]-last_cost[1])+std::abs(new_cost[2]-last_cost[2]))/N<0.001)
+                break;
+            if((std::abs(new_cost[1]-last_cost2[1])+std::abs(new_cost[2]-last_cost2[2]))/N<0.0002)
+                break;
+        }
+
+        last_cost2 = last_cost;
         last_cost = new_cost;
         last_c_cost = c_cost;
 
@@ -561,6 +583,7 @@ int maxit=10) {
         for(int i=0;i<N;i++)if(cluster_labels[grid_asses[i]]!=cluster_labels[old_grid_asses[i]])change_num += 1;
 
         printf("cost %.2lf %.2lf %d\n", cost, c_cost, downCnt);
+//        printf("cost %.2lf %.2lf\n", new_cost[1], new_cost[2]);
 
         tmp = (clock()-start)/CLOCKS_PER_SEC;
         a_time += tmp;
@@ -628,7 +651,7 @@ const std::vector<bool> &_change,
 const std::string &type,
 double alpha, double beta,
 int maxit=10, int seed=10, bool innerBiMatch=true) {
-    
+
     // ----------------------------------preprocess step start----------------------------------------
 
     int N = _grid_asses.size();
@@ -842,7 +865,7 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
                             now_best =checkCostForT(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, true, old_grid_asses, old_T_pair)[0];
                             for(int tmp_gid=0;tmp_gid<N;tmp_gid++)old_grid_asses[tmp_gid] = grid_asses[tmp_gid];
                         }
-                            
+
 
                         int best_gid = -1;    // best bar2
 
@@ -1158,10 +1181,10 @@ const std::vector<bool> &_change) {
             }
         }
     }
-    delete[] cost_matrix;
 
     std::vector<int> ret = solveBiMatchChange(cost_matrix, N, change, grid_asses);   //cluster内部各自进行二分图匹配
 
+    delete[] cost_matrix;
     delete[] grid_asses;
     delete[] ori_grid_asses;
     delete[] cluster_labels;

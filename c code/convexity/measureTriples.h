@@ -389,24 +389,37 @@ const std::vector<int> &_cluster_labels) {
 //old_T_pair[0..1]: convexity(in the form of loss/cost) pair in old grid layout
 //return T[0..1]: convexity(in the form of loss/cost) pair in layout now
 std::vector<double> checkConvexForTwithOld(
-int change_cnt,
-int change_triples[][3],
-double change_triples_times[],
+int triples[][4],
+int triples_head[],
+int triples_list[][2],
 double old_T_pair[],
 const int grid_asses[],
 const int old_grid_asses[],
 const int cluster_labels[],
 const int &N, const int &num, const int &square_len, const int &maxLabel) {
 
+    int *changed = new int[N];
+    for(int gid=0;gid<N;gid++){
+        int old_lb = -1;
+        if(old_grid_asses[gid]<num)old_lb = cluster_labels[old_grid_asses[gid]];
+        int lb = -1;
+        if(grid_asses[gid]<num)lb = cluster_labels[grid_asses[gid]];
+        if(old_lb==lb)changed[gid] = 0;
+        else changed[gid] = 1;
+    }
+
     double T0 = 0, T1 = 0;
     double dec_T0 = 0, dec_T1 = 0;
     #pragma omp parallel for reduction(+:T0, T1, dec_T0, dec_T1) num_threads(THREADS_NUM)
-    for(int starti=0;starti<N;starti++){
-        for(int i=starti;i<change_cnt;i+=N){
-            int gid1 = change_triples[i][0];
-            int gid0 = change_triples[i][1];
-            int gid2 = change_triples[i][2];
-            double times = change_triples_times[i];
+    for(int gid=0;gid<N;gid++)
+    if(changed[gid]==1) {
+        for(int ii=triples_head[gid];ii>=0;ii=triples_list[ii][1]){
+            int i = triples_list[ii][0];
+            int gid1 = triples[i][0];
+            int gid0 = triples[i][1];
+            int gid2 = triples[i][2];
+            double times = triples[i][3];
+            times = (1.0*times)/(changed[gid1]+changed[gid0]+changed[gid2]);
 
             int id1 = grid_asses[gid1];
             int id0 = grid_asses[gid0];
@@ -436,6 +449,8 @@ const int &N, const int &num, const int &square_len, const int &maxLabel) {
     std::vector<double> T_pair(2, 0);
     T_pair[0] = old_T_pair[0]+T0-dec_T0;
     T_pair[1] = old_T_pair[1]+T1-dec_T1;
+
+    delete[] changed;
     return T_pair;
 }
 
@@ -770,12 +785,6 @@ bool save=false, bool load=false, int old_grid_asses[]=nullptr, double old_T_pai
     int (*triples_list)[2];
     int cnt;
 
-    int (*change_triples)[3];
-    double *change_triples_times;
-    int *change_triples_head;
-    int (*change_triples_list)[2];
-    int change_cnt;
-
     if(global_N==N){
         triples = global_triples;
         triples_head = global_triples_head;
@@ -801,23 +810,12 @@ bool save=false, bool load=false, int old_grid_asses[]=nullptr, double old_T_pai
     }
     // printf("triples count: %d\n", cnt);
 
-    if(load){
-        // change_cnt = getChangeTriplesCnt(cnt, triples, triples_head, triples_list, grid_asses, old_grid_asses,cluster_labels, N, num, square_len, maxLabel);
-        change_cnt = cnt;
-        change_triples = new int[change_cnt][3];
-        change_triples_times = new double[change_cnt];
-        change_triples_head = new int[N];
-        change_triples_list = new int[change_cnt*3][2];
-        change_cnt = getChangeTriples(change_triples, change_triples_times, change_triples_head, change_triples_list,
-        cnt, triples, triples_head, triples_list, grid_asses, old_grid_asses, cluster_labels, N, num, square_len, maxLabel);
-    }
-
     std::vector<double> T_pair(2, 0);
     if(!load){
         T_pair = checkConvexForTArray(triples, cnt, grid_asses, cluster_labels, N, num, square_len, maxLabel);
         // printf("T_pair %.2lf %.2lf\n", T_pair[0], T_pair[1]);
     }else {
-        T_pair = checkConvexForTwithOld(change_cnt, change_triples, change_triples_times,
+        T_pair = checkConvexForTwithOld(triples, triples_head, triples_list,
         old_T_pair, grid_asses, old_grid_asses, cluster_labels, N, num, square_len, maxLabel);
     }
 
@@ -852,12 +850,6 @@ bool save=false, bool load=false, int old_grid_asses[]=nullptr, double old_T_pai
     // printf("cost %.2lf\n", cost);
     // printf("cost %.2lf %.2lf %.2lf %.2lf %.2lf %.2lf\n", Similar_cost, Compact_cost, Convex_cost*N, beta, alpha, cost);
 
-    if(load){
-        delete[] change_triples;
-        delete[] change_triples_times;
-        delete[] change_triples_head;
-        delete[] change_triples_list;
-    }
     delete[] element_asses;
 
     std::vector<double> ret(4, 0);
