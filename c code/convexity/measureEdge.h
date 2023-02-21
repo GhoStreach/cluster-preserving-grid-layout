@@ -29,65 +29,86 @@ const int &N, const int &num, const int &square_len, const int &maxLabel) {
     int bias1 = (i+1)*maxLabel;
     int bias2 = square_len*maxLabel;
 
-    if(lb<maxLabel) {
+//    if(lb<maxLabel) {
+    if(true) {
 
         if(i-1>=0){
             int gid1 = gid-square_len;
             int id1 = grid_asses[gid1];
-            if((id1<num)&&(cluster_labels[id1]!=lb)){
-                E1 += 1;
+            if((id1>=num)||(cluster_labels[id1]!=lb)){
                 double t = 1.0*x_pre[bias0+lb]/x_pre[bias2+lb];
-                E0 += t;
 
-                int lb2 = cluster_labels[id1];
-                E1 += 1;
-                t = 1.0*(x_pre[bias2+lb2]-x_pre[bias0+lb2])/x_pre[bias2+lb2];
-                E0 += t;
+                if((0<=lb)&&(lb<maxLabel)) {
+                    E1 += 1;
+                    E0 += t;
+                }
+
+                if(id1<num) {
+                    int lb2 = cluster_labels[id1];
+                    E1 += 1;
+                    t = 1.0*(x_pre[bias2+lb2]-x_pre[bias0+lb2])/x_pre[bias2+lb2];
+                    E0 += t;
+                }
             }
         }else E1 += 1;
 
         if(i+1<square_len){
             int gid1 = gid+square_len;
             int id1 = grid_asses[gid1];
-            if((id1<num)&&(cluster_labels[id1]!=lb)){
-                E1 += 1;
+            if((id1>=num)||(cluster_labels[id1]!=lb)){
                 double t = 1.0*(x_pre[bias2+lb]-x_pre[bias1+lb])/x_pre[bias2+lb];
-                E0 += t;
 
-                int lb2 = cluster_labels[id1];
-                E1 += 1;
-                t = 1.0*x_pre[bias1+lb2]/x_pre[bias2+lb2];
-                E0 += t;
+                if((0<=lb)&&(lb<maxLabel)) {
+                    E1 += 1;
+                    E0 += t;
+                }
+
+                if(id1<num) {
+                    int lb2 = cluster_labels[id1];
+                    E1 += 1;
+                    t = 1.0*x_pre[bias1+lb2]/x_pre[bias2+lb2];
+                    E0 += t;
+                }
             }
         }else E1 += 1;
 
         if(j-1>=0){
             int gid1 = gid-1;
             int id1 = grid_asses[gid1];
-            if((id1<num)&&(cluster_labels[id1]!=lb)){
-                E1 += 1;
+            if((id1>=num)||(cluster_labels[id1]!=lb)){
                 double t = 1.0*y_pre[j*maxLabel+lb]/y_pre[bias2+lb];
-                E0 += t;
 
-                int lb2 = cluster_labels[id1];
-                E1 += 1;
-                t = 1.0*(y_pre[bias2+lb2]-y_pre[j*maxLabel+lb2])/y_pre[bias2+lb2];
-                E0 += t;
+                if((0<=lb)&&(lb<maxLabel)) {
+                    E1 += 1;
+                    E0 += t;
+                }
+
+                if(id1<num) {
+                    int lb2 = cluster_labels[id1];
+                    E1 += 1;
+                    t = 1.0*(y_pre[bias2+lb2]-y_pre[j*maxLabel+lb2])/y_pre[bias2+lb2];
+                    E0 += t;
+                }
             }
         }else E1 += 1;
 
         if(j+1<square_len){
             int gid1 = gid+1;
             int id1 = grid_asses[gid1];
-            if((id1<num)&&(cluster_labels[id1]!=lb)){
-                E1 += 1;
+            if((id1>=num)||(cluster_labels[id1]!=lb)){
                 double t = 1.0*(y_pre[bias2+lb]-y_pre[(j+1)*maxLabel+lb])/y_pre[bias2+lb];
-                E0 += t;
 
-                int lb2 = cluster_labels[id1];
-                E1 += 1;
-                t = 1.0*y_pre[(j+1)*maxLabel+lb2]/y_pre[bias2+lb2];
-                E0 += t;
+                if((0<=lb)&&(lb<maxLabel)) {
+                    E1 += 1;
+                    E0 += t;
+                }
+
+                if(id1<num) {
+                    int lb2 = cluster_labels[id1];
+                    E1 += 1;
+                    t = 1.0*y_pre[(j+1)*maxLabel+lb2]/y_pre[bias2+lb2];
+                    E0 += t;
+                }
             }
         }else E1 += 1;
 
@@ -156,7 +177,7 @@ bool save=false, int save_x_pre[]=nullptr, int save_y_pre[]=nullptr) {
             if(i-1>=0){
                 int gid1 = gid-square_len;
                 int id1 = grid_asses[gid1];
-                if((id1<num)&&(cluster_labels[id1]!=lb)){
+                if((id1>=num)||(cluster_labels[id1]!=lb)){
                     E1 += 1;
                     double t = 1.0*x_pre[bias0+lb]/x_pre[bias2+lb];
                     E0 += t;
@@ -166,7 +187,7 @@ bool save=false, int save_x_pre[]=nullptr, int save_y_pre[]=nullptr) {
             if(i+1<square_len){
                 int gid1 = gid+square_len;
                 int id1 = grid_asses[gid1];
-                if((id1<num)&&(cluster_labels[id1]!=lb)){
+                if((id1>=num)||(cluster_labels[id1]!=lb)){
                     E1 += 1;
                     double t = 1.0*(x_pre[bias2+lb]-x_pre[bias1+lb])/x_pre[bias2+lb];
                     E0 += t;
@@ -176,7 +197,7 @@ bool save=false, int save_x_pre[]=nullptr, int save_y_pre[]=nullptr) {
             if(j-1>=0){
                 int gid1 = gid-1;
                 int id1 = grid_asses[gid1];
-                if((id1<num)&&(cluster_labels[id1]!=lb)){
+                if((id1>=num)||(cluster_labels[id1]!=lb)){
                     E1 += 1;
                     double t = 1.0*y_pre[j*maxLabel+lb]/y_pre[bias2+lb];
                     E0 += t;
@@ -186,7 +207,7 @@ bool save=false, int save_x_pre[]=nullptr, int save_y_pre[]=nullptr) {
             if(j+1<square_len){
                 int gid1 = gid+1;
                 int id1 = grid_asses[gid1];
-                if((id1<num)&&(cluster_labels[id1]!=lb)){
+                if((id1>=num)||(cluster_labels[id1]!=lb)){
                     E1 += 1;
                     double t = 1.0*(y_pre[bias2+lb]-y_pre[(j+1)*maxLabel+lb])/y_pre[bias2+lb];
                     E0 += t;
@@ -342,7 +363,7 @@ const std::vector<int> &_cluster_labels) {
     #pragma omp parallel for num_threads(THREADS_NUM)
     for(int gid=0;gid<N;gid++) {
         int bias = gid*N;
-        for(int id=0;id<num;id++){
+        for(int id=0;id<N;id++){
             cost_matrix[gid][id] = cost_matrix_a[bias+id];
         }
     }

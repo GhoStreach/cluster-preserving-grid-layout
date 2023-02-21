@@ -168,9 +168,9 @@ const int gid, const int lb) {
         fcnt += innerDict[gid*maxLabel+lb1];
         if(lb!=lb1)ecnt += innerDict[gid*maxLabel+lb1];
         if(lb==lb1){
-            for(int lb2=0;lb2<maxLabel;lb2++){
-                fcnt += outerDict[gid*maxLabel*maxLabel+lb1*maxLabel+lb2];
-                if(lb1!=lb2)ecnt += outerDict[gid*maxLabel*maxLabel+lb1*maxLabel+lb2];
+            for(int lb2=0;lb2<2;lb2++){
+                fcnt += outerDict[gid*maxLabel*2+lb1*2+lb2];
+                if(lb2==1)ecnt += outerDict[gid*maxLabel*2+lb1*2+lb2];
             }
         }
     }
@@ -206,16 +206,20 @@ const int gid) {
             }
         }else if(gid1==gid){
             int id0 = grid_asses[gid0], id2 = grid_asses[gid2];
-            if((id0>=num)||(id2>=num))continue;
-            int lb0 = cluster_labels[id0];
+            if(id2>=num)continue;
+            int lb0 = 0;
+            if((id0>=num)||(cluster_labels[id0]!=cluster_labels[id2]))
+                lb0 = 1;
             int lb2 = cluster_labels[id2];
-            outerDict[gid*maxLabel*maxLabel+lb2*maxLabel+lb0] += times;
+            outerDict[gid*maxLabel*2+lb2*2+lb0] += times;
         }else if(gid2==gid){
             int id0 = grid_asses[gid0], id1 = grid_asses[gid1];
-            if((id0>=num)||(id1>=num))continue;
-            int lb0 = cluster_labels[id0];
+            if(id1>=num)continue;
             int lb1 = cluster_labels[id1];
-            outerDict[gid*maxLabel*maxLabel+lb1*maxLabel+lb0] += times;
+            int lb0 = 0;
+            if((id0>=num)||(cluster_labels[id0]!=cluster_labels[id1]))
+                lb0 = 1;
+            outerDict[gid*maxLabel*2+lb1*2+lb0] += times;
         }
     }
     return;
@@ -254,16 +258,20 @@ const int gid) {
             }
         }else if(gid1==gid){
             int id0 = grid_asses[gid0], id2 = grid_asses[gid2];
-            if((id0>=num)||(id2>=num))continue;
-            int lb0 = cluster_labels[id0];
+            if(id2>=num)continue;
             int lb2 = cluster_labels[id2];
-            outerDict[gid*maxLabel*maxLabel+lb2*maxLabel+lb0] += times;
+            int lb0 = 0;
+            if((id0>=num)||(cluster_labels[id0]!=cluster_labels[id2]))
+                lb0 = 1;
+            outerDict[gid*maxLabel*2+lb2*2+lb0] += times;
         }else if(gid2==gid){
             int id0 = grid_asses[gid0], id1 = grid_asses[gid1];
-            if((id0>=num)||(id1>=num))continue;
-            int lb0 = cluster_labels[id0];
+            if(id1>=num)continue;
             int lb1 = cluster_labels[id1];
-            outerDict[gid*maxLabel*maxLabel+lb1*maxLabel+lb0] += times;
+            int lb0 = 0;
+            if((id0>=num)||(cluster_labels[id0]!=cluster_labels[id1]))
+                lb0 = 1;
+            outerDict[gid*maxLabel*2+lb1*2+lb0] += times;
         }
 
         if(gid==gid0){
@@ -275,16 +283,20 @@ const int gid) {
             }
         }else if(gid1==gid){
             int id0 = old_grid_asses[gid0], id2 = old_grid_asses[gid2];
-            if((id0>=num)||(id2>=num))continue;
-            int lb0 = cluster_labels[id0];
+            if(id2>=num)continue;
             int lb2 = cluster_labels[id2];
-            outerDict[gid*maxLabel*maxLabel+lb2*maxLabel+lb0] -= times;
+            int lb0 = 0;
+            if((id0>=num)||(cluster_labels[id0]!=cluster_labels[id2]))
+                lb0 = 1;
+            outerDict[gid*maxLabel*2+lb2*2+lb0] -= times;
         }else if(gid2==gid){
             int id0 = old_grid_asses[gid0], id1 = old_grid_asses[gid1];
-            if((id0>=num)||(id1>=num))continue;
-            int lb0 = cluster_labels[id0];
+            if(id1>=num)continue;
             int lb1 = cluster_labels[id1];
-            outerDict[gid*maxLabel*maxLabel+lb1*maxLabel+lb0] -= times;
+            int lb0 = 0;
+            if((id0>=num)||(cluster_labels[id0]!=cluster_labels[id1]))
+                lb0 = 1;
+            outerDict[gid*maxLabel*2+lb1*2+lb0] -= times;
         }
         // printf("done update %d %d\n", gid, i);
     }
@@ -316,10 +328,11 @@ const int &N, const int &num, const int &square_len, const int &maxLabel) {
             int id1 = grid_asses[gid1];
             int id0 = grid_asses[gid0];
             int id2 = grid_asses[gid2];
-            if((id1>=num)||(id0>=num)||(id2>=num))continue;
+            if((id1>=num)||(id2>=num))continue;
             int lb1 = cluster_labels[id1];
-            int lb0 = cluster_labels[id0];
             int lb2 = cluster_labels[id2];
+            int lb0 = -1;
+            if(id0<num)lb0 = cluster_labels[id0];
             if(lb1==lb2){
                 T1 += times;
                 if(lb1!=lb0)T0 += times;
@@ -424,10 +437,11 @@ const int &N, const int &num, const int &square_len, const int &maxLabel) {
             int id1 = grid_asses[gid1];
             int id0 = grid_asses[gid0];
             int id2 = grid_asses[gid2];
-            if((id1>=num)||(id0>=num)||(id2>=num))continue;
+            if((id1>=num)||(id2>=num))continue;
             int lb1 = cluster_labels[id1];
-            int lb0 = cluster_labels[id0];
             int lb2 = cluster_labels[id2];
+            int lb0 = -1;
+            if(id0<num)lb0 = cluster_labels[id0];
             if(lb1==lb2){
                 T1 += times;
                 if(lb1!=lb0)T0 += times;
@@ -436,10 +450,11 @@ const int &N, const int &num, const int &square_len, const int &maxLabel) {
             id1 = old_grid_asses[gid1];
             id0 = old_grid_asses[gid0];
             id2 = old_grid_asses[gid2];
-            if((id1>=num)||(id0>=num)||(id2>=num))continue;
+            if((id1>=num)||(id2>=num))continue;
             lb1 = cluster_labels[id1];
-            lb0 = cluster_labels[id0];
             lb2 = cluster_labels[id2];
+            lb0 = -1;
+            if(id0<num)lb0 = cluster_labels[id0];
             if(lb1==lb2){
                 dec_T1 += times;
                 if(lb1!=lb0)dec_T0 += times;
@@ -617,15 +632,17 @@ int old_grid_asses[]=nullptr, double now_T_pair[]=nullptr) {
         T_pair1[0] = now_T_pair[0];
         T_pair1[1] = now_T_pair[1];
     }
+
     // printf("convex checked\n");
+
     double correct1=0, full1=0;
     full1 = T_pair1[1];
     correct1 = T_pair1[1]-T_pair1[0];
 
     int *innerDict = new int[N*maxLabel];
-    int *outerDict = new int[N*maxLabel*maxLabel];
+    int *outerDict = new int[N*maxLabel*2];
     for(int i=0;i<N*maxLabel;i++)innerDict[i] = 0;
-    for(int i=0;i<N*maxLabel*maxLabel;i++)outerDict[i] = 0;
+    for(int i=0;i<N*maxLabel*2;i++)outerDict[i] = 0;
 
     if(!load) {
         #pragma omp parallel for num_threads(THREADS_NUM)
@@ -633,24 +650,25 @@ int old_grid_asses[]=nullptr, double now_T_pair[]=nullptr) {
             updateTripleDict(innerDict, outerDict, triples, triples_head, triples_list, grid_asses, cluster_labels, N, num, square_len, maxLabel, gid);
     }else {
         double *innerDict_d = new double[N*maxLabel];
-        double *outerDict_d = new double[N*maxLabel*maxLabel];
+        double *outerDict_d = new double[N*maxLabel*2];
         for(int i=0;i<N*maxLabel;i++)innerDict_d[i] = old_innerDict[i];
-        for(int i=0;i<N*maxLabel*maxLabel;i++)outerDict_d[i] = old_outerDict[i];
+        for(int i=0;i<N*maxLabel*2;i++)outerDict_d[i] = old_outerDict[i];
         #pragma omp parallel for num_threads(THREADS_NUM)
         for(int gid=0;gid<N;gid++)    //preprocess for triples of every gid
             updateTripleDictwithOld(innerDict_d, outerDict_d,
             change_triples, change_triples_times, change_triples_head, change_triples_list,
             grid_asses, old_grid_asses, cluster_labels, N, num, square_len, maxLabel, gid);
         for(int i=0;i<N*maxLabel;i++)innerDict[i] = round(innerDict_d[i]);
-        for(int i=0;i<N*maxLabel*maxLabel;i++)outerDict[i] = round(outerDict_d[i]);
+        for(int i=0;i<N*maxLabel*2;i++)outerDict[i] = round(outerDict_d[i]);
         delete[] innerDict_d;
         delete[] outerDict_d;
     }
 
     if(save) {
         for(int i=0;i<N*maxLabel;i++)old_innerDict[i] = innerDict[i];
-        for(int i=0;i<N*maxLabel*maxLabel;i++)old_outerDict[i] = outerDict[i];
+        for(int i=0;i<N*maxLabel*2;i++)old_outerDict[i] = outerDict[i];
     }
+
     // printf("dict updated\n");
 
     double *correct_matrix1 = new double[N];    //triples of every grid in layout now
@@ -667,6 +685,7 @@ int old_grid_asses[]=nullptr, double now_T_pair[]=nullptr) {
 
     double *correct_matrix2 = new double[N*(maxLabel+1)];    //elements of same label matching a same grid, have same cost
     double *full_matrix2 = new double[N*(maxLabel+1)];
+
     for(int i=0;i<N*(maxLabel+1);i++){
         correct_matrix2[i] = full_matrix2[i] = -1;
     }

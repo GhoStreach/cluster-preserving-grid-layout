@@ -52,6 +52,7 @@ double checkConnect(
     for(int gid=0;gid<N;gid++){
         if(checked[gid]>=check_cnt)labelCheckCnt += 1;
     }
+    if(tot==0)return 0;
     double per = 1.0*labelCheckCnt/tot;
 
     if(show)printf("%d %d\n", labelCheckCnt, tot);
@@ -310,8 +311,6 @@ const int &N, const int &num, const int &square_len, const int &maxLabel) {
 
     int i = gid/square_len;
     int j = gid%square_len;
-    int id = grid_asses[gid];
-    if(id>=num)return;
 
     if(i-1>=0){    // up
         int gid1 = gid-square_len;
@@ -368,8 +367,6 @@ const int &N, const int &num, const int &square_len, const int &maxLabel) {
         int bias0 = i*square_len;
         for(int j=0;j<square_len;j++){
             int gid = bias0+j;
-            int id = grid_asses[gid];
-            if(id>=num)continue;
 
             if(i-1>=0){
                 int gid1 = gid-square_len;
@@ -425,13 +422,15 @@ const int &N, const int &num, const int &square_len, const int &maxLabel) {
         for(int j=0;j<square_len;j++){
             int gid = bias0+j;
             int id = grid_asses[gid];
-            if(id>=num)continue;
-            int lb = cluster_labels[id];
+            int lb = maxLabel;
+            if(id<num)lb = cluster_labels[id];
 
             if(i-1>=0){
                 int gid1 = gid-square_len;
                 int id1 = grid_asses[gid1];
-                if((id1<num)&&(cluster_labels[id1]!=lb)){
+                int lb1 = maxLabel;
+                if(id1<num)lb1 = cluster_labels[id1];
+                if(lb1!=lb){
                     E_grid[gid] += 1;
                 }
             }else E_grid[gid] += 1;
@@ -439,7 +438,9 @@ const int &N, const int &num, const int &square_len, const int &maxLabel) {
             if(i+1<square_len){
                 int gid1 = gid+square_len;
                 int id1 = grid_asses[gid1];
-                if((id1<num)&&(cluster_labels[id1]!=lb)){
+                int lb1 = maxLabel;
+                if(id1<num)lb1 = cluster_labels[id1];
+                if(lb1!=lb){
                     E_grid[gid] += 1;
                 }
             }else E_grid[gid] += 1;
@@ -447,7 +448,9 @@ const int &N, const int &num, const int &square_len, const int &maxLabel) {
             if(j-1>=0){
                 int gid1 = gid-1;
                 int id1 = grid_asses[gid1];
-                if((id1<num)&&(cluster_labels[id1]!=lb)){
+                int lb1 = maxLabel;
+                if(id1<num)lb1 = cluster_labels[id1];
+                if(lb1!=lb){
                     E_grid[gid] += 1;
                 }
             }else E_grid[gid] += 1;
@@ -455,7 +458,9 @@ const int &N, const int &num, const int &square_len, const int &maxLabel) {
             if(j+1<square_len){
                 int gid1 = gid+1;
                 int id1 = grid_asses[gid1];
-                if((id1<num)&&(cluster_labels[id1]!=lb)){
+                int lb1 = maxLabel;
+                if(id1<num)lb1 = cluster_labels[id1];
+                if(lb1!=lb){
                     E_grid[gid] += 1;
                 }
             }else E_grid[gid] += 1;
@@ -629,34 +634,34 @@ std::vector<double> find_alpha(double delta1, double delta2, double delta3) {
 
 // calculate full cost
 std::vector<double> checkCostForGlobal(
-    const double P1_cost_matrix[],
-    const double P2_cost_matrix[],
+    const double Similar_cost_matrix[],
+    const double Compact_cost_matrix[],
     const int grid_asses[], const int cluster_labels[],
     const int &N, const int &num, const int &square_len, const int &maxLabel,
     const double &alpha, const double &beta) {
 
-    double P3cost = 0;
-    double P1cost = 0;
-    double P2cost = 0;
+    double Convex_cost = 0;
+    double Similar_cost = 0;
+    double Compact_cost = 0;
     double cost = 0;
 
     int *element_asses = new int[num];
     for(int i=0;i<N;i++)if(grid_asses[i]<num)element_asses[grid_asses[i]] = i;
 
     for(int i=0;i<num;i++){
-        P1cost += P1_cost_matrix[element_asses[i]*N+i];
-        P2cost += P2_cost_matrix[element_asses[i]*N+i];
-        cost += P1_cost_matrix[element_asses[i]*N+i] * (1-beta-alpha);
-        cost += P2_cost_matrix[element_asses[i]*N+i] * beta;
+        Similar_cost += Similar_cost_matrix[element_asses[i]*N+i];
+        Compact_cost += Compact_cost_matrix[element_asses[i]*N+i];
+        cost += Similar_cost_matrix[element_asses[i]*N+i] * (1-beta-alpha);
+        cost += Compact_cost_matrix[element_asses[i]*N+i] * beta;
     }
-    cost += P3cost * N * alpha;
+    cost += Convex_cost * N * alpha;
 
     delete[] element_asses;
     std::vector<double> ret(4, 0);
     ret[0] = cost;
-    ret[1] = P1cost;
-    ret[2] = P2cost;
-    ret[3] = P3cost*N;
+    ret[1] = Similar_cost;
+    ret[2] = Compact_cost;
+    ret[3] = Convex_cost*N;
     return ret;
 }
 

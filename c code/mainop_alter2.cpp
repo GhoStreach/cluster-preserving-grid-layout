@@ -303,6 +303,7 @@ int maxit=10) {
     double start = clock();
 
     // ----------------------------------preprocess step start----------------------------------------
+    printf("preprocess step start\n");
 
     int N = _grid_asses.size();
     int num = _cluster_labels.size();
@@ -393,12 +394,14 @@ int maxit=10) {
     double pre_time = (clock()-start)/CLOCKS_PER_SEC;
 
     // ----------------------------------preprocess step done----------------------------------------
+    printf("preprocess step done\n");
 
     // ----------------------------------iterater step start----------------------------------------
+    printf("iterater step start\n");
 
     // printf("pre time %.2lf\n", pre_time);
     double a = 1;
-    int downMax = 5;
+    int downMax = 2;
     int downCnt = 0;
 
     double km_time = 0;
@@ -413,7 +416,7 @@ int maxit=10) {
 
     // information of triples measure to save and load
     int *save_innerDict = new int[N*maxLabel];
-    int *save_outerDict = new int[N*maxLabel*maxLabel];
+    int *save_outerDict = new int[N*maxLabel*2];
     int *old_grid_asses = new int[N];
     double *T_pair = new double[2];
 
@@ -560,10 +563,16 @@ int maxit=10) {
         if(alter&&(type=="Global")){
 //            printf("cost1 %.2lf %.2lf\n", new_cost[1], last_cost[1]);
 //            printf("cost2 %.2lf %.2lf\n", new_cost[2], last_cost[2]);
-            if((std::abs(new_cost[1]-last_cost[1])+std::abs(new_cost[2]-last_cost[2]))/N<0.001)
-                break;
-            if((std::abs(new_cost[1]-last_cost2[1])+std::abs(new_cost[2]-last_cost2[2]))/N<0.0002)
-                break;
+            if((std::abs(new_cost[1]-last_cost2[1])+std::abs(new_cost[2]-last_cost2[2]))/N<0.0001) {
+                printf("converge 1\n");
+//                break;
+                maxit = it+1;
+            }
+            if((std::abs(new_cost[1]-last_cost[1])+std::abs(new_cost[2]-last_cost[2]))/N<0.001) {
+                printf("converge 2\n");
+//                break;
+                maxit = it+1;
+            }
         }
 
         last_cost2 = last_cost;
@@ -700,7 +709,7 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
 
     // ----------------------------------swap step start----------------------------------------
 
-    int downMax = 3;
+    int downMax = 2;
     int downCnt = 0;
     srand(seed);
 
@@ -732,7 +741,7 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
             int *E_grid = new int[N];    // count of edges with a different clusters of every grid
             int *E_grid2 = new int[N];    // count of edges with the bar1 clusters information of every grid
             int *labels_cnt = new int[maxLabel+1];    // count of edges with every clusters, bar1
-            int *labels_cnt2 = new int[maxLabel+1];    // count of edges with every clusters, bar1
+            int *labels_cnt2 = new int[maxLabel+1];    // count of edges with every clusters, bar2
             int *checked = new int[N];    // if grid been accessed
             int check_cnt = 1;
             for(int i=0;i<N;i++)checked[i]=0;
@@ -801,8 +810,9 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
 
                         for(int gid2=0;gid2<N;gid2++){    // enumerate bar2
                             int id2 = grid_asses[gid2];
-                            if(id2>=num)continue;
-                            if(labels_cnt[cluster_labels[id2]]==0)continue;   // cluster that have no edge with bar1
+                            int lb2 = maxLabel;
+                            if(id2<num)lb2 = cluster_labels[id2];
+                            if((id2<num)&&(labels_cnt[lb2]==0))continue;   // cluster that have no edge with bar1
                             int x2 = gid2/square_len;
                             int y2 = gid2%square_len;
                             for(int ori=0;ori<2;ori++){
@@ -821,7 +831,9 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
                                 for(int i=0;i<now_num;i++){
                                     int gid = now_gid2[i];
                                     int id = grid_asses[gid];
-                                    if((id>=num)||(cluster_labels[id]!=cluster_labels[id2])){
+                                    int lb = maxLabel;
+                                    if(id<num)lb = cluster_labels[id];
+                                    if(lb!=lb2){
                                         flag = 1;
                                         break;
                                     }
@@ -886,7 +898,8 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
                             int id2 = grid_asses[worst_gid[j*now_num]];
                             if(cluster_labels[id1]==cluster_labels[id2])continue;    // save cluster
                             int lb1 = cluster_labels[id1];
-                            int lb2 = cluster_labels[id2];
+                            int lb2 = maxLabel;
+                            if(id2<num)lb2 = cluster_labels[id2];
 
                             for(int k=0;k<now_num;k++){    //swap
                                 std::swap(grid_asses[ori_gid1[k]], grid_asses[worst_gid[j*now_num+k]]);
@@ -1065,6 +1078,7 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
             a_time += tmp;
             // printf("addition time %.2lf\n", tmp);
 
+            printf("downCnt %d\n", downCnt);
             if(downCnt>=downMax)break;
         }
     }
