@@ -195,7 +195,8 @@ std::vector<std::vector<double>> getConnectCostMatrix(
 
 //origin cost matrix(distance to the origin layout)
 void getOriginCostMatrixArrayToArray(
-int grid_asses[],
+//int grid_asses[],
+double ori_embedded[][2],
 int cluster_labels[],
 double ret_a[],
 const int &N, const int &num, const int &square_len, const int &maxLabel) {
@@ -205,10 +206,13 @@ const int &N, const int &num, const int &square_len, const int &maxLabel) {
         double x1 = 1.0*(gid1/square_len)/square_len;
         double y1 = 1.0*(gid1%square_len)/square_len;
         int bias = gid1*N;
-        for(int gid2=0;gid2<N;gid2++){
-            int id = grid_asses[gid2];
-            double x2 = 1.0*(gid2/square_len)/square_len;
-            double y2 = 1.0*(gid2%square_len)/square_len;
+//        for(int gid2=0;gid2<N;gid2++){
+//            int id = grid_asses[gid2];
+//            double x2 = 1.0*(gid2/square_len)/square_len;
+//            double y2 = 1.0*(gid2%square_len)/square_len;
+        for(int id=0;id<N;id++){
+            double x2 = ori_embedded[id][0];
+            double y2 = ori_embedded[id][1];
             int lb = cluster_labels[id];
             ret_a[bias+id] = getDist(x1, y1, x2, y2);
             ret_a[bias+id] = ret_a[bias+id]*ret_a[bias+id];

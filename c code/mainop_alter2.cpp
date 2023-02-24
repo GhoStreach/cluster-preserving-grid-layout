@@ -292,7 +292,8 @@ const int grid_asses[]) {
 
 // optimize the layout by iterate of bi-graph match
 std::vector<double> optimizeBA(
-const std::vector<int> &_ori_grid_asses,
+//const std::vector<int> &_ori_grid_asses,
+const std::vector<std::vector<double>> &_ori_embedded,
 const std::vector<int> &_grid_asses,
 const std::vector<int> &_cluster_labels,
 const std::vector<bool> &_change,
@@ -311,17 +312,22 @@ int maxit=10) {
     int maxLabel = 0;
     for(int i=0;i<num;i++)maxLabel = max(maxLabel, _cluster_labels[i]+1);
     int *grid_asses = new int[N];
-    int *ori_grid_asses = new int[N];
+//    int *ori_grid_asses = new int[N];
+    double (*ori_embedded)[2] = new double[N][2];
     int *cluster_labels = new int[num];
     bool *change = new bool[N];
     for(int i=0;i<N;i++)grid_asses[i] = _grid_asses[i];
-    for(int i=0;i<N;i++)ori_grid_asses[i] = _ori_grid_asses[i];
+//    for(int i=0;i<N;i++)ori_grid_asses[i] = _ori_grid_asses[i];
+    for(int i=0;i<N;i++) {
+        ori_embedded[i][0] = _ori_embedded[i][0];
+        ori_embedded[i][1] = _ori_embedded[i][1];
+    }
     for(int i=0;i<num;i++)cluster_labels[i] = _cluster_labels[i];
     for(int i=0;i<N;i++)change[i] = _change[i];
 
     double *Similar_cost_matrix = new double[N*N];
 
-    getOriginCostMatrixArrayToArray(ori_grid_asses, cluster_labels, Similar_cost_matrix, N, num, square_len, maxLabel);
+    getOriginCostMatrixArrayToArray(ori_embedded, cluster_labels, Similar_cost_matrix, N, num, square_len, maxLabel);
 
 //    #pragma omp parallel for num_threads(THREADS_NUM)
 //    for(int i1=0;i1<N;i1++){
@@ -561,14 +567,14 @@ int maxit=10) {
         double c_cost = N*checkConnectForAll(grid_asses, cluster_labels, checked, N, num, square_len, maxLabel, 4);
 
         if(alter&&(type=="Global")){
-//            printf("cost1 %.2lf %.2lf\n", new_cost[1], last_cost[1]);
-//            printf("cost2 %.2lf %.2lf\n", new_cost[2], last_cost[2]);
-            if((std::abs(new_cost[1]-last_cost2[1])+std::abs(new_cost[2]-last_cost2[2]))/N<0.0001) {
+            printf("cost1 %.2lf %.2lf\n", new_cost[1], last_cost[1]);
+            printf("cost2 %.2lf %.2lf\n", new_cost[2], last_cost[2]);
+            if((std::abs(new_cost[1]-last_cost2[1])+std::abs(new_cost[2]-last_cost2[2]))/N<0.00015) {
                 printf("converge 1\n");
 //                break;
                 maxit = it+1;
             }
-            if((std::abs(new_cost[1]-last_cost[1])+std::abs(new_cost[2]-last_cost[2]))/N<0.001) {
+            if((std::abs(new_cost[1]-last_cost[1])+std::abs(new_cost[2]-last_cost[2]))/N<0.0015) {
                 printf("converge 2\n");
 //                break;
                 maxit = it+1;
@@ -636,7 +642,8 @@ int maxit=10) {
 
     delete[] checked;
     delete[] grid_asses;
-    delete[] ori_grid_asses;
+//    delete[] ori_grid_asses;
+    delete[] ori_embedded;
     delete[] cluster_labels;
     delete[] change;
     delete[] Similar_cost_matrix;
@@ -652,8 +659,8 @@ int maxit=10) {
 
 // optimize by search bars to swap
 std::vector<double> optimizeSwap(
-//const std::vector<std::vector<double>> &_Similar_cost_matrix,
-const std::vector<int> &_ori_grid_asses,
+//const std::vector<int> &_ori_grid_asses,
+const std::vector<std::vector<double>> &_ori_embedded,
 const std::vector<int> &_grid_asses,
 const std::vector<int> &_cluster_labels,
 const std::vector<bool> &_change,
@@ -669,16 +676,21 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
     int maxLabel = 0;
     for(int i=0;i<num;i++)maxLabel = max(maxLabel, _cluster_labels[i]+1);
     int *grid_asses = new int[N];
-    int *ori_grid_asses = new int[N];
+//    int *ori_grid_asses = new int[N];
+    double (*ori_embedded)[2] = new double[N][2];
     int *cluster_labels = new int[num];
     bool *change = new bool[N];
     for(int i=0;i<N;i++)grid_asses[i] = _grid_asses[i];
-    for(int i=0;i<N;i++)ori_grid_asses[i] = _ori_grid_asses[i];
+//    for(int i=0;i<N;i++)ori_grid_asses[i] = _ori_grid_asses[i];
+    for(int i=0;i<N;i++) {
+        ori_embedded[i][0] = _ori_embedded[i][0];
+        ori_embedded[i][1] = _ori_embedded[i][1];
+    }
     for(int i=0;i<num;i++)cluster_labels[i] = _cluster_labels[i];
     for(int i=0;i<N;i++)change[i] = _change[i];
 
     double *Similar_cost_matrix = new double[N*N];
-    getOriginCostMatrixArrayToArray(ori_grid_asses, cluster_labels, Similar_cost_matrix, N, num, square_len, maxLabel);
+    getOriginCostMatrixArrayToArray(ori_embedded, cluster_labels, Similar_cost_matrix, N, num, square_len, maxLabel);
 
     double *Compact_cost_matrix = new double[N*N];
     getCompactCostMatrixArrayToArray(grid_asses, cluster_labels, Compact_cost_matrix, N, num, square_len, maxLabel);
@@ -1145,7 +1157,8 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
     delete[] old_T_pair;
 
     delete[] grid_asses;
-    delete[] ori_grid_asses;
+//    delete[] ori_grid_asses;
+    delete[] ori_embedded;
     delete[] cluster_labels;
     delete[] change;
     delete[] Similar_cost_matrix;
@@ -1157,7 +1170,8 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
 
 // bi-graph match in each cluster to ensure the minist Similar cost
 std::vector<int> optimizeInnerCluster(
-const std::vector<int> &_ori_grid_asses,
+//const std::vector<int> &_ori_grid_asses,
+const std::vector<std::vector<double>> &_ori_embedded,
 const std::vector<int> &_grid_asses,
 const std::vector<int> &_cluster_labels,
 const std::vector<bool> &_change) {
@@ -1167,16 +1181,21 @@ const std::vector<bool> &_change) {
     int maxLabel = 0;
     for(int i=0;i<num;i++)maxLabel = max(maxLabel, _cluster_labels[i]+1);
     int *grid_asses = new int[N];
-    int *ori_grid_asses = new int[N];
+//    int *ori_grid_asses = new int[N];
+    double (*ori_embedded)[2] = new double[N][2];
     int *cluster_labels = new int[num];
     bool *change = new bool[N];
     for(int i=0;i<N;i++)grid_asses[i] = _grid_asses[i];
-    for(int i=0;i<N;i++)ori_grid_asses[i] = _ori_grid_asses[i];
+//    for(int i=0;i<N;i++)ori_grid_asses[i] = _ori_grid_asses[i];
+    for(int i=0;i<N;i++) {
+        ori_embedded[i][0] = _ori_embedded[i][0];
+        ori_embedded[i][1] = _ori_embedded[i][1];
+    }
     for(int i=0;i<num;i++)cluster_labels[i] = _cluster_labels[i];
     for(int i=0;i<N;i++)change[i] = _change[i];
 
     double *Similar_cost_matrix = new double[N*N];
-    getOriginCostMatrixArrayToArray(ori_grid_asses, cluster_labels, Similar_cost_matrix, N, num, square_len, maxLabel);
+    getOriginCostMatrixArrayToArray(ori_embedded, cluster_labels, Similar_cost_matrix, N, num, square_len, maxLabel);
 
     double *cost_matrix = new double[N*N];    //cluster内部各自进行二分图匹配，代价矩阵
     #pragma omp parallel for num_threads(THREADS_NUM)
@@ -1200,7 +1219,8 @@ const std::vector<bool> &_change) {
 
     delete[] cost_matrix;
     delete[] grid_asses;
-    delete[] ori_grid_asses;
+//    delete[] ori_grid_asses;
+    delete[] ori_embedded;
     delete[] cluster_labels;
     delete[] change;
     delete[] Similar_cost_matrix;
