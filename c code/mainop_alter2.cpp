@@ -17,6 +17,8 @@
 #include "convexity/measureCHS.h"
 #include "convexity/measureCHC.h"
 #include "convexity/newMeasure2020.h"
+#include "convexity/measureCE.h"
+#include "convexity/measureDoubles.h"
 
 // simple cluster, python interface
 std::vector<int> getClusters(
@@ -666,7 +668,7 @@ const std::vector<int> &_cluster_labels,
 const std::vector<bool> &_change,
 const std::string &type,
 double alpha, double beta,
-int maxit=10, int seed=10, bool innerBiMatch=true) {
+int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
 
     // ----------------------------------preprocess step start----------------------------------------
 
@@ -701,6 +703,7 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
     double c_sum = 0;    // connectivity cost(constraint)
 
     double *old_T_pair = new double[2];    // convexity of triples
+    double *old_D_pair = new double[N*N*2];
     int *old_grid_asses = new int[N];
     for(int i=0;i<N;i++)old_grid_asses[i] = grid_asses[i];
 
@@ -716,11 +719,14 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
         best = checkCostForT(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, false, old_grid_asses, old_T_pair)[0];
     else if(type=="Global")
         best = checkCostForGlobal(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta)[0];
+    else if(type=="CplusE")
+        best = checkCostForCE(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta)[0];
+    else if(type=="T2")
+        best = checkCostForT2(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, false, old_grid_asses, old_T_pair, old_D_pair)[0];
 
     // ----------------------------------preprocess step done----------------------------------------
 
     // ----------------------------------swap step start----------------------------------------
-
     int downMax = 2;
     int downCnt = 0;
     srand(seed);
@@ -735,7 +741,7 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
     int k_value = 50;
 
     for(int it=0;it<maxit;it++){    //枚举轮次
-        if(type=="E"||type=="S"||type=="C"||type=="2020"||type=="T"){
+        if(type=="E"||type=="S"||type=="C"||type=="2020"||type=="T"||type=="CplusE"||type=="T2"){
 
             int update_flag = 0;    // if layout been updated
             int improve_flag = 0;    // if find a better layout
@@ -889,7 +895,12 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
                             now_best =checkCostForT(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, true, old_grid_asses, old_T_pair)[0];
                             for(int tmp_gid=0;tmp_gid<N;tmp_gid++)old_grid_asses[tmp_gid] = grid_asses[tmp_gid];
                         }
-
+                        else if(type=="CplusE")
+                            now_best =checkCostForCE(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, false, label_pairs)[0];
+                        else if(type=="T2") {
+                            now_best =checkCostForT2(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, true, old_grid_asses, old_T_pair, old_D_pair)[0];
+                            for(int tmp_gid=0;tmp_gid<N;tmp_gid++)old_grid_asses[tmp_gid] = grid_asses[tmp_gid];
+                        }
 
                         int best_gid = -1;    // best bar2
 
@@ -908,10 +919,10 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
 
                             int id1 = grid_asses[ori_gid1[0]];
                             int id2 = grid_asses[worst_gid[j*now_num]];
-                            if(cluster_labels[id1]==cluster_labels[id2])continue;    // save cluster
                             int lb1 = cluster_labels[id1];
                             int lb2 = maxLabel;
                             if(id2<num)lb2 = cluster_labels[id2];
+                            if(lb1==lb2)continue;    // same cluster
 
                             for(int k=0;k<now_num;k++){    //swap
                                 std::swap(grid_asses[ori_gid1[k]], grid_asses[worst_gid[j*now_num+k]]);
@@ -930,6 +941,10 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
                                 cost = checkCostFor2020(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, label_pairs, lb1, lb2)[0];
                             else if(type=="T")
                                 cost = checkCostForT(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, old_grid_asses, old_T_pair)[0];
+                            else if(type=="CplusE")
+                                cost = checkCostForCE(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, label_pairs, lb1, lb2)[0];
+                            else if(type=="T2")
+                                cost = checkCostForT2(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, old_grid_asses, old_T_pair, old_D_pair)[0];
 
                             if(true) {
                                 // if(type!="C")
@@ -968,14 +983,42 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
                             }
                         }
                         if(best_gid!=-1){    // choose the best bar2 to swap
+
+                            if(swap_cnt<=0) {
+                                break;
+                            }
+
                             update_flag = 1;
 
                             double cost = 0;
                             c_sum += now_c;
 
+//                            if(type=="C") {
+//                                double ce = checkCostForE(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta)[0];
+//                                double cc = checkCostForC(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta)[0];
+//                                printf("before cost %.2lf %.2lf\n", ce, cc);
+//                                printf("swap1 ");
+//                                for(int k=0;k<now_num;k++){
+//                                    printf("%d ",ori_gid1[k]);
+//                                }
+//                                printf("\n");
+//
+//                                printf("swap2 ");
+//                                for(int k=0;k<now_num;k++){
+//                                    printf("%d ",worst_gid[best_gid*now_num+k]);
+//                                }
+//                                printf("\n");
+//                            }
+
                             for(int k=0;k<now_num;k++){
                                 std::swap(grid_asses[ori_gid1[k]], grid_asses[worst_gid[best_gid*now_num+k]]);
                             }
+
+//                            if(type=="C") {
+//                                double ce = checkCostForE(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta)[0];
+//                                double cc = checkCostForC(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta)[0];
+//                                printf("after cost %.2lf %.2lf\n", ce, cc);
+//                            }
 
                             if(type=="E")
                                 cost = checkCostForE(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta)[0];
@@ -989,9 +1032,18 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
                                 cost = checkCostForT(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, true, old_grid_asses, old_T_pair)[0];
                                 for(int tmp_gid=0;tmp_gid<N;tmp_gid++)old_grid_asses[tmp_gid] = grid_asses[tmp_gid];
                             }
+                            else if(type=="CplusE")
+                                cost = checkCostForCE(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta)[0];
+                            else if(type=="T2") {
+                                cost = checkCostForT2(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, true, old_grid_asses, old_T_pair, old_D_pair)[0];
+                                for(int tmp_gid=0;tmp_gid<N;tmp_gid++)old_grid_asses[tmp_gid] = grid_asses[tmp_gid];
+                            }
 
                             if(cost+c_sum<best){    // find a better layout
                                 // printf("swap %d %d\n", grid_asses[ori_gid1[0]], grid_asses[worst_gid[best_gid*now_num]]);
+
+                                swap_cnt -= 1;
+
                                 best = cost;
                                 c_sum = 0;
                                 for(int k=0;k<N;k++)ans[k] = grid_asses[k];
@@ -1064,6 +1116,12 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
                 cost = checkCostForT(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, true, old_grid_asses, old_T_pair)[0];
                 for(int tmp_gid=0;tmp_gid<N;tmp_gid++)old_grid_asses[tmp_gid] = grid_asses[tmp_gid];
             }
+            else if(type=="CplusE")
+                cost = checkCostForCE(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta)[0];
+            else if(type=="T2") {
+                cost = checkCostForT2(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, true, old_grid_asses, old_T_pair, old_D_pair)[0];
+                for(int tmp_gid=0;tmp_gid<N;tmp_gid++)old_grid_asses[tmp_gid] = grid_asses[tmp_gid];
+            }
 
             if(cost+c_sum<best){    // update ans
                 best = cost;
@@ -1091,7 +1149,10 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
             // printf("addition time %.2lf\n", tmp);
 
             printf("downCnt %d\n", downCnt);
-            if(downCnt>=downMax)break;
+            if(downCnt>=downMax) {
+//                if(type=="C")continue;
+                break;
+            }
         }
     }
 
@@ -1141,9 +1202,15 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
         cost = checkCostForT(Similar_cost_matrix, Compact_cost_matrix, ans, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, true, old_grid_asses, old_T_pair);
         for(int tmp_gid=0;tmp_gid<N;tmp_gid++)old_grid_asses[tmp_gid] = ans[tmp_gid];
     }
+    else if(type=="T2") {
+        cost = checkCostForT2(Similar_cost_matrix, Compact_cost_matrix, ans, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, true, old_grid_asses, old_T_pair, old_D_pair);
+        for(int tmp_gid=0;tmp_gid<N;tmp_gid++)old_grid_asses[tmp_gid] = ans[tmp_gid];
+    }
     else if(type=="Global")
         cost = checkCostForGlobal(Similar_cost_matrix, Compact_cost_matrix, ans, cluster_labels, N, num, square_len, maxLabel, alpha, beta);
     // printf("cost %.6lf %.6lf %.6lf\n", cost[1], cost[2], cost[3]);
+    else if(type=="CplusE")
+        cost = checkCostForCE(Similar_cost_matrix, Compact_cost_matrix, ans, cluster_labels, N, num, square_len, maxLabel, alpha, beta);
 
     std::vector<double> ret(N+3, 0);
     for(int i=0;i<N;i++)ret[i] = ans[i];
@@ -1155,6 +1222,7 @@ int maxit=10, int seed=10, bool innerBiMatch=true) {
 
     delete[] old_grid_asses;
     delete[] old_T_pair;
+    delete[] old_D_pair;
 
     delete[] grid_asses;
 //    delete[] ori_grid_asses;

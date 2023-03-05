@@ -1,5 +1,6 @@
 dict = {}
 dict2 = {}
+dict0 = {}
 save_file = True
 
 def body():
@@ -104,12 +105,14 @@ def body():
     # showT = "-NoneText"
 
     # for type in ["O", "S", "T", "E", "C"]:
-    for type in ["T", "2020", "E"]:
+    # for type in ["T", "S", "ST", "TS"]:
+    for type in ["T", "S", "ST", "TS", "C", "E", "EC", "CE"]:
+    # for type in ["E"]:
         # for showT in ["", "-NoneText"]:
         for showT in ["-NoneText"]:
 
             # for op_type in ["base", "compact", "global", "full"]:
-            for op_type in ["base", "global", "full"]:
+            for op_type in ["global", "full"]:
                 if (type != "T") and (op_type != "full"):
                     continue
                 m1 = 0
@@ -122,10 +125,22 @@ def body():
                 #     m2 = 5
                 if type == "E":
                     m1 = 0
-                    m2 = 3
+                    m2 = 5
+                if type == "C":
+                    m1 = 0
+                    m2 = 5
                 if type == "T":
+                    m1 = 10
+                    m2 = 0
+                if type == "ST":
                     m1 = 5
                     m2 = 0
+                if type == "S":
+                    m1 = 0
+                    m2 = 5
+                if type == "TS":
+                    m1 = 0
+                    m2 = 3
                 if type == "O":
                     m1 = 0
                     m2 = 0
@@ -142,14 +157,14 @@ def body():
                 if op_type == "compact":
                     only_compact = True
 
-                file_path = os.path.join(path, type + "-" + op_type + showT + ".svg")
+                file_path = os.path.join(path, type + "-" + op_type + showT + ".png")
                 save_path = os.path.join(path, type + "-" + op_type + ".npz")
 
                 Optimizer = gridOptimizer()
                 # print("check done", BASolver.checkConvex(np.array(row_asses_c), np.array(s_labels)))
                 # row_asses_m, heat = BASolver.grid3(s_embeddings, s_labels, 'E')
                 row_asses_m, t1, t2, new_labels, new_cost = Optimizer.grid(s_embeddings, s_labels, type, m1, m2,
-                                                                           use_global, only_compact)
+                                                                           use_global, only_compact, swap_cnt=2147483647)
 
                 show_labels = new_labels
                 show_labels = np.array(show_labels)
@@ -177,6 +192,7 @@ def body():
                 new_cost[2] = 1 - new_cost[2] / grid_width / grid_width
                 new_cost[3] = 1 - new_cost[3] / grid_width / grid_width
                 new_cost[4] = 1 - new_cost[4] / grid_width / grid_width
+                new_cost[5] = 1 - new_cost[5] / grid_width / grid_width
 
                 if name not in dict:
                     dict.update({name: new_cost})
@@ -185,8 +201,11 @@ def body():
                     dict[name] += new_cost
                     dict2[name] += 1
 
+                name0 = name+"-"+str(tt)
+                dict0.update({name0: new_cost.copy()})
+
                 print(show_labels.max())
-                if show_labels.max() < 10:
+                if show_labels.max() < 30:
                     Optimizer.show_grid(row_asses_m, show_labels, grid_width, file_path, showText, just_save=True)
                 # Optimizer.show_grid(row_asses_m, show_labels, grid_width, "E-full-NoneText.svg", showText)
                 # Optimizer.show_grid(row_asses_m, show_labels, grid_width, "test"+name+".png", showText)
@@ -198,7 +217,7 @@ for dataset in ["MNIST"]:
 # for dataset in ["MNIST", "USPS", "CIFAR10", "STL-10"]:
 # for dataset in ["MNIST", "STL-10", "CIFAR10", "USPS", "Cats-vs-dogs", "Weather", "Wifi", "Indian food"]:
 #     for grid_width in [20, 30, 40]:
-    for grid_width in [20, 30, 40]:
+    for grid_width in [30, 40]:
         for flag in [3, 5, 7, 'all']:
         # for flag in ['all']:
             max_tt = 20
@@ -240,4 +259,12 @@ for key in dict:
     if "base" in key:
         t = -1
     dict[key] /= dict2[key]
-    print(key, "----", "%.4lf"%dict[key][0], "&", "%.4lf"%dict[key][1], "&", "%.4lf"%dict[key][2], "&", "%.4lf"%dict[key][3], "&", "%.4lf"%dict[key][4], "&", "%.3lf"%dict[key][t])
+    print(key, "----", "%.4lf"%dict[key][0], "&", "%.4lf"%dict[key][1], "&", "%.4lf"%dict[key][2], "&", "%.4lf"%dict[key][3], "&", "%.4lf"%dict[key][4], "&", "%.4lf"%dict[key][5], "&", "%.3lf"%dict[key][t])
+
+# for key in dict0:
+#     t = -2
+#     if "base" in key:
+#         t = -1
+#     if "-C-" in key:
+#         continue
+#     print(key, "----", "%.4lf"%dict0[key][3], "&", "%.4lf"%dict0[key][4])
