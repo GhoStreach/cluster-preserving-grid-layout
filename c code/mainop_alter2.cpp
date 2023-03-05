@@ -727,6 +727,7 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
     // ----------------------------------preprocess step done----------------------------------------
 
     // ----------------------------------swap step start----------------------------------------
+
     int downMax = 2;
     int downCnt = 0;
     srand(seed);
@@ -1296,6 +1297,142 @@ const std::vector<bool> &_change) {
     return ret;
 }
 
+// bi-graph match in each cluster to ensure the minist Similar cost, with must-link
+std::vector<int> optimizeInnerClusterWithMustLink(
+//const std::vector<int> &_ori_grid_asses,
+const std::vector<std::vector<double>> &_ori_embedded,
+const std::vector<int> &_grid_asses,
+const std::vector<int> &_cluster_labels,
+const std::vector<bool> &_change,
+const std::vector<std::vector<int>> &_must_links,
+const std::vector<std::vector<int>> &_must_links2,
+const int maxit = 1) {
+    int N = _grid_asses.size();
+    int num = _cluster_labels.size();
+    int square_len = ceil(sqrt(N));
+    int maxLabel = 0;
+    for(int i=0;i<num;i++)maxLabel = max(maxLabel, _cluster_labels[i]+1);
+    int *grid_asses = new int[N];
+//    int *ori_grid_asses = new int[N];
+    double (*ori_embedded)[2] = new double[N][2];
+    int *cluster_labels = new int[num];
+    bool *change = new bool[N];
+    for(int i=0;i<N;i++)grid_asses[i] = _grid_asses[i];
+//    for(int i=0;i<N;i++)ori_grid_asses[i] = _ori_grid_asses[i];
+    for(int i=0;i<N;i++) {
+        ori_embedded[i][0] = _ori_embedded[i][0];
+        ori_embedded[i][1] = _ori_embedded[i][1];
+    }
+    for(int i=0;i<num;i++)cluster_labels[i] = _cluster_labels[i];
+    for(int i=0;i<N;i++)change[i] = _change[i];
+
+    double *Similar_cost_matrix = new double[N*N];
+    getOriginCostMatrixArrayToArray(ori_embedded, cluster_labels, Similar_cost_matrix, N, num, square_len, maxLabel);
+
+    double *cost_matrix = new double[N*N];    //cluster内部各自进行二分图匹配，代价矩阵
+    int ml_N = _must_links.size();
+    int ml_N2 = _must_links2.size();
+    int *element_asses = new int[N];
+    double *cluster_dist = new double[N*(maxLabel+1)];
+    bool *is_border = new bool[N];
+    for(int id=0;id<N;id++)is_border[id] = false;
+    for(int i=0;i<ml_N2;i++)is_border[_must_links2[i][0]] = true;
+
+    #pragma omp parallel for num_threads(THREADS_NUM)
+    for(int gid2=0;gid2<N;gid2++){
+        int bias = gid2*(maxLabel+1);
+        int lb2 = maxLabel;
+        int id2 = grid_asses[gid2];
+        if(id2<num)lb2 = cluster_labels[id2];
+        int x2 = gid2/square_len;
+        int y2 = gid2%square_len;
+        for(int lb=0;lb<=maxLabel;lb++)cluster_dist[bias+lb] = 2147483647;
+        for(int gid1=0;gid1<N;gid1++){
+            int lb1 = maxLabel;
+            int id1 = grid_asses[gid1];
+            if(id1<num)lb1 = cluster_labels[id1];
+            int x1 = gid1/square_len;
+            int y1 = gid1%square_len;
+            cluster_dist[bias+lb1] = min(cluster_dist[bias+lb1], getDist(x1, y1, x2, y2));
+        }
+    }
+
+    for(int it=0;it<maxit;it++) {
+        #pragma omp parallel for num_threads(THREADS_NUM)
+        for(int gid2=0;gid2<N;gid2++){
+            int bias = gid2*N;
+            int lb2 = maxLabel;
+            int id2 = grid_asses[gid2];
+            element_asses[id2] = gid2;
+            if(id2<num)lb2 = cluster_labels[id2];
+            for(int gid1=0;gid1<N;gid1++){
+                int lb1 = maxLabel;
+                int id1 = grid_asses[gid1];
+                if(id1<num)lb1 = cluster_labels[id1];
+                if(lb1==lb2){
+                    cost_matrix[bias+id1] = Similar_cost_matrix[bias+id1];
+                }else {
+                    cost_matrix[bias+id1] = N;
+                }
+            }
+        }
+
+        for(int i=0;i<ml_N;i++) {
+            int ml_size = _must_links[i].size();
+            double x = 0;
+            double y = 0;
+            double tot_weight = 0;
+            for(int j=0;j<ml_size;j++) {
+                int id = _must_links[i][j];
+                double weight = 1;
+                if(is_border[id])weight = 2*(ml_size-1);
+                int gid = element_asses[id];
+                x += weight*(gid/square_len);
+                y += weight*(gid%square_len);
+                tot_weight += weight;
+            }
+            x /= tot_weight;
+            y /= tot_weight;
+            #pragma omp parallel for num_threads(THREADS_NUM)
+            for(int j=0;j<ml_size;j++) {
+                int id = _must_links[i][j];
+                for(int gid=0;gid<N;gid++) {
+                    int x0 = gid/square_len;
+                    int y0 = gid%square_len;
+                    cost_matrix[gid*N+id] += 1 * ((x0-x)*(x0-x) + (y0-y)*(y0-y));
+                }
+            }
+        }
+
+        for(int i=0;i<ml_N2;i++) {
+            int id = _must_links2[i][0];
+            int lb = _must_links2[i][1];
+            for(int gid=0;gid<N;gid++){
+                int tmp = gid*(maxLabel+1)+lb;
+                cost_matrix[gid*N+id] += 10*cluster_dist[tmp]*cluster_dist[tmp];
+            }
+        }
+
+        std::vector<int> ret = solveBiMatchChange(cost_matrix, N, change, grid_asses);   //cluster内部各自进行二分图匹配
+        for(int i=0;i<N;i++)grid_asses[i] = ret[i];
+    }
+    std::vector<int> ret(N, 0);
+    for(int i=0;i<N;i++)ret[i] = grid_asses[i];
+
+    delete[] cost_matrix;
+    delete[] grid_asses;
+//    delete[] ori_grid_asses;
+    delete[] ori_embedded;
+    delete[] cluster_labels;
+    delete[] change;
+    delete[] Similar_cost_matrix;
+    delete[] element_asses;
+    delete[] cluster_dist;
+    delete[] is_border;
+
+    return ret;
+}
+
 void testomp() {
     int sum=0;
     #pragma omp parallel for reduction(+:sum) num_threads(8)
@@ -1304,6 +1441,11 @@ void testomp() {
         if(i%50==0)printf("%d %d\n", i, omp_get_thread_num());
     }
     printf("%d\n",sum);
+}
+
+int testrand() {
+    srand(10);
+    return rand();
 }
 
 PYBIND11_MODULE(gridlayoutOpt, m) {
@@ -1320,6 +1462,8 @@ PYBIND11_MODULE(gridlayoutOpt, m) {
     m.def("optimizeBA", &optimizeBA, "A function to optimize");
     m.def("optimizeSwap", &optimizeSwap, "A function to optimize");
     m.def("optimizeInnerCluster", &optimizeInnerCluster, "A function to optimize");
+    m.def("optimizeInnerClusterWithMustLink", &optimizeInnerClusterWithMustLink, "A function to optimize");
     m.def("find_alpha", &find_alpha, "A function");
     m.def("testomp", &testomp, "A function");
+    m.def("testrand", &testrand, "A function");
 }
