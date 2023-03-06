@@ -3,14 +3,23 @@
 
 #include "measureTriples.h"
 
-std::vector<int> getDoubles(double a, double b) {
+//std::vector<int> getDoubles(double a, double b) {
+//    double tiny = 0.000001;
+//    std::vector<int> T_pair(2, 0);
+//    if(b>tiny) {
+//        T_pair[1] = 1;
+//        if(a>tiny)T_pair[0] = 1;
+//    }
+//    return T_pair;
+//}
+
+void getDoubles(double &T0, double &T1, double a, double b) {
     double tiny = 0.000001;
-    std::vector<int> T_pair(2, 0);
+    T0 = 0, T1 = 0;
     if(b>tiny) {
-        T_pair[1] = 1;
-        if(a>tiny)T_pair[0] = 1;
+        T1 = 1;
+        if(a>tiny)T0 = 1;
     }
-    return T_pair;
 }
 
 int getDoubleId(int x, int y, int N){
@@ -65,7 +74,9 @@ const int &N, const int &num, const int &square_len, const int &maxLabel) {
     for(int i=0;i<N;i++)
     for(int j=i+1;j<N;j++) {
         int did = getDoubleId(i, j, N);
-        std::vector<int> D_tmp = getDoubles(D_pair[did], D_pair[did+1]);
+        //std::vector<int> D_tmp = getDoubles(D_pair[did], D_pair[did+1]);
+        double D_tmp[2];
+        getDoubles(D_tmp[0], D_tmp[1], D_pair[did], D_pair[did+1]);
         // printf("%d %d %.2lf %.2lf %d %d\n", i, j, D_pair[did], D_pair[did+1], D_tmp[0], D_tmp[1]);
         T0 += D_tmp[0];
         T1 += D_tmp[1];
@@ -151,8 +162,11 @@ const int &N, const int &num, const int &square_len, const int &maxLabel) {
                     if(lb1!=lb0)tmp_T0 -= times;
                 }
             }
-            std::vector<int> D_tmp1 = getDoubles(old_D_pair[did], old_D_pair[did+1]);
-            std::vector<int> D_tmp2 = getDoubles(tmp_T0, tmp_T1);
+//            std::vector<int> D_tmp1 = getDoubles(old_D_pair[did], old_D_pair[did+1]);
+//            std::vector<int> D_tmp2 = getDoubles(tmp_T0, tmp_T1);
+            double D_tmp1[2], D_tmp2[2];
+            getDoubles(D_tmp1[0], D_tmp1[1], old_D_pair[did], old_D_pair[did+1]);
+            getDoubles(D_tmp2[0], D_tmp2[1], tmp_T0, tmp_T1);
             T0 += D_tmp2[0];
             T1 += D_tmp2[1];
             dec_T0 += D_tmp1[0];
