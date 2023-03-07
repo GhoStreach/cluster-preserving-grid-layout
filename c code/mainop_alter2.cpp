@@ -1254,7 +1254,6 @@ std::vector<double> checkCostForAll(
 const std::vector<std::vector<double>> &_ori_embedded,
 const std::vector<int> &_grid_asses,
 const std::vector<int> &_cluster_labels,
-const std::vector<bool> &_change,
 const std::string &type,
 double alpha, double beta) {
 
@@ -1269,7 +1268,6 @@ double alpha, double beta) {
 //    int *ori_grid_asses = new int[N];
     double (*ori_embedded)[2] = new double[N][2];
     int *cluster_labels = new int[num];
-    bool *change = new bool[N];
     for(int i=0;i<N;i++)grid_asses[i] = _grid_asses[i];
 //    for(int i=0;i<N;i++)ori_grid_asses[i] = _ori_grid_asses[i];
     for(int i=0;i<N;i++) {
@@ -1277,7 +1275,6 @@ double alpha, double beta) {
         ori_embedded[i][1] = _ori_embedded[i][1];
     }
     for(int i=0;i<num;i++)cluster_labels[i] = _cluster_labels[i];
-    for(int i=0;i<N;i++)change[i] = _change[i];
 
     double *Similar_cost_matrix = new double[N*N];
     getOriginCostMatrixArrayToArray(ori_embedded, cluster_labels, Similar_cost_matrix, N, num, square_len, maxLabel);
@@ -1337,7 +1334,6 @@ double alpha, double beta) {
 //    delete[] ori_grid_asses;
     delete[] ori_embedded;
     delete[] cluster_labels;
-    delete[] change;
     delete[] Similar_cost_matrix;
     delete[] Compact_cost_matrix;
     delete[] ans;
@@ -1563,16 +1559,16 @@ PYBIND11_MODULE(gridlayoutOpt, m) {
     m.def("solveLap", &solveLap, "A function");
     m.def("getConnectCostMatrix", &getConnectCostMatrix, "A function to get cost matrix");
     m.def("getCompactCostMatrix", &getCompactCostMatrix, "A function to get cost matrix");
-    m.def("checkConvexForE", &checkConvexForE, "A function to check convexity");
-    m.def("checkConvexForT", &checkConvexForT, "A function to check convexity");
-    m.def("getCostMatrixForE", &getCostMatrixForE, "A function to get cost matrix");
-    m.def("getCostMatrixForT", &getCostMatrixForT, "A function to get cost matrix");
+    // m.def("checkConvexForE", &checkConvexForE, "A function to check convexity");
+    // m.def("checkConvexForT", &checkConvexForT, "A function to check convexity");
+    // m.def("getCostMatrixForE", &getCostMatrixForE, "A function to get cost matrix");
+    // m.def("getCostMatrixForT", &getCostMatrixForT, "A function to get cost matrix");
     m.def("optimizeBA", &optimizeBA, "A function to optimize");
     m.def("optimizeSwap", &optimizeSwap, "A function to optimize");
     m.def("checkCostForAll", &checkCostForAll, "A function to check cost");
     m.def("optimizeInnerCluster", &optimizeInnerCluster, "A function to optimize");
     m.def("optimizeInnerClusterWithMustLink", &optimizeInnerClusterWithMustLink, "A function to optimize");
-    m.def("find_alpha", &find_alpha, "A function");
+    // m.def("find_alpha", &find_alpha, "A function");
     m.def("testomp", &testomp, "A function");
     m.def("testrand", &testrand, "A function");
 }

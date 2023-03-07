@@ -8,15 +8,15 @@ def body():
     np.set_printoptions(suppress=True)
     np.set_printoptions(precision=4)
     import os
-    processed_data = "./processed_data"
-    tsne_result = "./tsne_result"
+    tsne_result = "../tsne_result"
 
     # feature_path = os.path.join(processed_data, "{}_full.npz".format(dataset))
-    tsne_path = os.path.join(tsne_result, dataset, "position.npz")
+    tsne_path = os.path.join(tsne_result, dataset, "position_pred.npz")
     # features = np.load(feature_path, allow_pickle=True)['features']
     tsne_file = np.load(tsne_path, allow_pickle=True)
     embeddings = tsne_file['positions']
-    labels = tsne_file['labels']
+    labels = tsne_file['gtlabels']
+    plabels = tsne_file['plabels']
     label_names = tsne_file['label_names']
 
     if dataset == "Cats-vs-dogs":
@@ -65,11 +65,18 @@ def body():
         print(collections.Counter(labels))
 
         chosen_labels = np.random.choice(label_names.shape[0], flag, replace=False)
-        # chosen_labels = np.array([3, 0, 9])
+        # chosen_labels = np.array([1, 4, 7, 9])
         print(chosen_labels)
+
         idx = np.zeros(size, dtype='bool')
         for lb in chosen_labels:
             idx = (idx | (labels == lb))
+
+        idx2 = np.zeros(size, dtype='bool')
+        for lb in chosen_labels:
+            idx2 = (idx2 | (plabels == lb))
+        idx = idx & idx2
+
         print(idx)
         idx = (np.arange(size))[idx]
         chosen_size = idx.shape[0]
@@ -105,15 +112,17 @@ def body():
     # showT = "-NoneText"
 
     # for type in ["O", "S", "T", "E", "C"]:
-    # for type in ["T", "S", "ST", "TS"]:
-    for type in ["T", "S", "ST", "TS", "C", "E", "EC", "CE"]:
-    # for type in ["E"]:
+    # for type in ["C", "E", "EC", "CE", "CplusE"]:
+    # for type in ["T", "S", "ST", "TS", "C", "E", "EC", "CE"]:
+    # for type in ["C", "E", "EC", "CE"]:
+    for type in ["T", "S", "ST", "C", "E", "EC"]:
+        use_type = type
         # for showT in ["", "-NoneText"]:
         for showT in ["-NoneText"]:
 
             # for op_type in ["base", "compact", "global", "full"]:
-            for op_type in ["global", "full"]:
-                if (type != "T") and (op_type != "full"):
+            for op_type in ["base", "global", "full"]:
+                if (type != "T") and (op_type != "full") and (op_type != 'local'):
                     continue
                 m1 = 0
                 m2 = 3
@@ -125,19 +134,26 @@ def body():
                 #     m2 = 5
                 if type == "E":
                     m1 = 0
-                    m2 = 5
+                    m2 = 3
                 if type == "C":
                     m1 = 0
-                    m2 = 5
+                    m2 = 3
+                if type == "CplusE":
+                    m1 = 0
+                    m2 = 3
                 if type == "T":
-                    m1 = 10
+                    m1 = 5
                     m2 = 0
+                if type == "Tswap":
+                    m1 = 0
+                    m2 = 3
+                    use_type = "T"
                 if type == "ST":
                     m1 = 5
                     m2 = 0
                 if type == "S":
                     m1 = 0
-                    m2 = 5
+                    m2 = 3
                 if type == "TS":
                     m1 = 0
                     m2 = 3
@@ -145,9 +161,11 @@ def body():
                     m1 = 0
                     m2 = 0
 
+                use_local = True
                 if (op_type == "base") or (op_type == "global") or (op_type == "compact"):
                     m1 = 0
                     m2 = 0
+                    use_local = False
 
                 use_global = True
                 if (op_type == "base") or (op_type == "local"):
@@ -163,10 +181,10 @@ def body():
                 Optimizer = gridOptimizer()
                 # print("check done", BASolver.checkConvex(np.array(row_asses_c), np.array(s_labels)))
                 # row_asses_m, heat = BASolver.grid3(s_embeddings, s_labels, 'E')
-                row_asses_m, t1, t2, new_labels, new_cost = Optimizer.grid(s_embeddings, s_labels, type, m1, m2,
-                                                                           use_global, only_compact, swap_cnt=2147483647)
+                row_asses_m, t1, t2, new_labels, new_cost = Optimizer.grid(s_embeddings, s_labels, use_type, m1, m2,
+                                                                           use_global, use_local, only_compact, swap_cnt=2147483647, pred_labels=plabels[samples])
 
-                show_labels = new_labels
+                show_labels = s_labels
                 show_labels = np.array(show_labels)
                 tmp = np.full(row_asses_m.shape[0] - show_labels.shape[0], dtype='int', fill_value=-1)
                 show_labels = np.concatenate((show_labels, tmp), axis=0)
@@ -185,7 +203,12 @@ def body():
                 print("new_cost", new_cost)
                 name = "\'" + dataset + "\'-" + str(grid_width) + "-" + str(flag) + "-" + type + "-" + op_type
                 print(name, tt)
-                new_cost = np.append(new_cost, [t1 + t2, t2], None)
+
+                # new_cost = np.append(new_cost, [t1 + t2, t2], None)
+                if op_type == "base":
+                    new_cost = np.append(new_cost, [t2], None)
+                else:
+                    new_cost = np.append(new_cost, [t1+t2], None)
 
                 new_cost[0] = np.exp(-new_cost[0] / grid_width / grid_width)
                 new_cost[1] = np.exp(-new_cost[1] / grid_width / grid_width)
@@ -193,6 +216,9 @@ def body():
                 new_cost[3] = 1 - new_cost[3] / grid_width / grid_width
                 new_cost[4] = 1 - new_cost[4] / grid_width / grid_width
                 new_cost[5] = 1 - new_cost[5] / grid_width / grid_width
+                new_cost[6] = 1 - new_cost[6] / grid_width / grid_width
+                new_cost[7] = 1 - new_cost[7] / grid_width / grid_width
+                new_cost[8] = 1 - new_cost[8] / grid_width / grid_width
 
                 if name not in dict:
                     dict.update({name: new_cost})
@@ -211,16 +237,15 @@ def body():
                 # Optimizer.show_grid(row_asses_m, show_labels, grid_width, "test"+name+".png", showText)
                 # Optimizer.show_grid(row_asses_m, s_labels, grid_width)
 
-
-# for dataset in ["MNIST", "STL-10", "CIFAR10", "USPS"]:
+# for dataset in ["MNIST", "STL-10", "CIFAR10", "USPS",  "Weather", "Clothes", "FashionMNIST"]:
+# for dataset in ["Animals", "Indian food", "Wifi"]:
 for dataset in ["MNIST"]:
-# for dataset in ["MNIST", "USPS", "CIFAR10", "STL-10"]:
 # for dataset in ["MNIST", "STL-10", "CIFAR10", "USPS", "Cats-vs-dogs", "Weather", "Wifi", "Indian food"]:
 #     for grid_width in [20, 30, 40]:
-    for grid_width in [30, 40]:
-        for flag in [3, 5, 7, 'all']:
-        # for flag in ['all']:
-            max_tt = 20
+    for grid_width in [30]:
+        # for flag in [3, 5, 7, 'all']:
+        for flag in ['all']:
+            max_tt = 1
             # if grid_width == 20:
             #     max_tt = 50
             for tt in range(max_tt):
@@ -255,11 +280,9 @@ for dataset in ["MNIST"]:
 # dict2 =data['dict2']
 
 for key in dict:
-    t = -2
-    if "base" in key:
-        t = -1
+    t = -1
     dict[key] /= dict2[key]
-    print(key, "----", "%.4lf"%dict[key][0], "&", "%.4lf"%dict[key][1], "&", "%.4lf"%dict[key][2], "&", "%.4lf"%dict[key][3], "&", "%.4lf"%dict[key][4], "&", "%.4lf"%dict[key][5], "&", "%.3lf"%dict[key][t])
+    print(key, "----", "%.3lf"%dict[key][0], "&", "%.3lf"%dict[key][1], "&", "%.3lf"%dict[key][2], "&", "%.3lf"%dict[key][3], "&", "%.3lf"%dict[key][4], "&", "%.3lf"%dict[key][5], "&", "%.3lf"%dict[key][6], "&", "%.3lf"%dict[key][7], "&", "%.3lf"%dict[key][8], "&", "%.3lf"%dict[key][t])
 
 # for key in dict0:
 #     t = -2
