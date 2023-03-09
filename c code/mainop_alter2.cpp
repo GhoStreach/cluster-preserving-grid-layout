@@ -20,6 +20,7 @@
 #include "convexity/measureCE.h"
 #include "convexity/measureDoubles.h"
 #include "convexity/newMeasureTB.h"
+#include "convexity/newMeasureBoundary.h"
 
 // simple cluster, python interface
 std::vector<int> getClusters(
@@ -398,6 +399,7 @@ int maxit=10) {
     // printf("cost %.6lf %.6lf %.6lf\n",last_cost[1], last_cost[2], last_cost[3]);
 
     c_best = N*checkConnectForAll(grid_asses, cluster_labels, checked, N, num, square_len, maxLabel, 4);
+    c_best = 0;
     last_c_cost = c_best;
 
     double pre_time = (clock()-start)/CLOCKS_PER_SEC;
@@ -500,6 +502,7 @@ int maxit=10) {
             alpha = 0;
             beta = dec_Compact/(dec_Similar+dec_Compact);
 //            printf("new alpha: %.2lf %.2lf\n", alpha, beta);
+            if(it==0)beta = 0.5;
         }
         printf("it: %d new alpha: %.2lf %.2lf\n", it, alpha, beta);
 
@@ -584,6 +587,7 @@ int maxit=10) {
             }
         }
 
+        c_cost = 0;
         last_cost2 = last_cost;
         last_cost = new_cost;
         last_c_cost = c_cost;
@@ -1312,6 +1316,8 @@ double alpha, double beta) {
         cost = checkCostForT2(Similar_cost_matrix, Compact_cost_matrix, ans, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, false, old_grid_asses, old_T_pair, old_D_pair);
         for(int tmp_gid=0;tmp_gid<N;tmp_gid++)old_grid_asses[tmp_gid] = ans[tmp_gid];
     }
+    else if(type=="B")
+        cost = checkCostForB(Similar_cost_matrix, Compact_cost_matrix, ans, cluster_labels, N, num, square_len, maxLabel, alpha, beta);
     else if(type=="Global")
         cost = checkCostForGlobal(Similar_cost_matrix, Compact_cost_matrix, ans, cluster_labels, N, num, square_len, maxLabel, alpha, beta);
     // printf("cost %.6lf %.6lf %.6lf\n", cost[1], cost[2], cost[3]);
@@ -1552,6 +1558,7 @@ int testrand() {
     return rand();
 }
 
+
 PYBIND11_MODULE(gridlayoutOpt, m) {
     m.doc() = "Gridlayout Optimizer"; // optional module docstring
     m.def("getClusters", &getClusters, "A function");
@@ -1559,16 +1566,16 @@ PYBIND11_MODULE(gridlayoutOpt, m) {
     m.def("solveLap", &solveLap, "A function");
     m.def("getConnectCostMatrix", &getConnectCostMatrix, "A function to get cost matrix");
     m.def("getCompactCostMatrix", &getCompactCostMatrix, "A function to get cost matrix");
-    // m.def("checkConvexForE", &checkConvexForE, "A function to check convexity");
-    // m.def("checkConvexForT", &checkConvexForT, "A function to check convexity");
-    // m.def("getCostMatrixForE", &getCostMatrixForE, "A function to get cost matrix");
-    // m.def("getCostMatrixForT", &getCostMatrixForT, "A function to get cost matrix");
+//    m.def("checkConvexForE", &checkConvexForE, "A function to check convexity");
+//    m.def("checkConvexForT", &checkConvexForT, "A function to check convexity");
+//    m.def("getCostMatrixForE", &getCostMatrixForE, "A function to get cost matrix");
+//    m.def("getCostMatrixForT", &getCostMatrixForT, "A function to get cost matrix");
     m.def("optimizeBA", &optimizeBA, "A function to optimize");
     m.def("optimizeSwap", &optimizeSwap, "A function to optimize");
     m.def("checkCostForAll", &checkCostForAll, "A function to check cost");
     m.def("optimizeInnerCluster", &optimizeInnerCluster, "A function to optimize");
     m.def("optimizeInnerClusterWithMustLink", &optimizeInnerClusterWithMustLink, "A function to optimize");
-    // m.def("find_alpha", &find_alpha, "A function");
+    m.def("find_alpha", &find_alpha, "A function");
     m.def("testomp", &testomp, "A function");
     m.def("testrand", &testrand, "A function");
 }
