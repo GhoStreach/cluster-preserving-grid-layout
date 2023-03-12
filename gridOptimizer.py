@@ -79,12 +79,12 @@ class gridOptimizer(object):
         tmp_row_asses = np.array(
             gridlayoutOpt.checkCostForAll(ori_embedded, row_asses, labels, type, 1, 0))
 
-        new_cost = np.array([tmp_row_asses[N], tmp_row_asses[N + 1], tmp_row_asses[N + 2]])
+        new_cost = np.array([tmp_row_asses[N], tmp_row_asses[N + 1], tmp_row_asses[N + 2], tmp_row_asses[N + 3]])
         # print(new_cost)
         return new_cost
 
     # 优化gridlayout
-    def grid_op(self, ori_embedded, row_asses, labels, useGlobal=True, useLocal=True, convex_type="E", maxit=10, maxit2=5, only_compact=False, swap_cnt=2147483647):
+    def grid_op(self, ori_embedded, row_asses, labels, useGlobal=True, useLocal=True, convex_type="E", maxit=10, maxit2=5, only_compact=False, swap_cnt=2147483647, swap_op_order=False):
 
         start = time.time()
         N = row_asses.shape[0]
@@ -134,22 +134,22 @@ class gridOptimizer(object):
 
             return ans_row_asses, best_cost
 
-        compact_it = 3
+        compact_it = 5
         global_it = 5
-        if convex_type == "O":
-            compact_it = 0
-            global_it = 0
+
+        ori_row_asses = row_asses.copy()
 
         ans = row_asses
         new_cost = np.array([2147483647, 2147483647, 2147483647])
-        if useGlobal:
+
+        if not swap_op_order and useGlobal:
             # row_asses1, new_cost1 = solve_op(ori_embedded, row_asses, "Global", 0, 0, False, None, 0, 0)
-            row_asses1 = row_asses.copy()
+            row_asses1 = ori_row_asses.copy()
             new_cost1 = self.check_cost_type(ori_embedded, row_asses1, labels, "Global")
             # self.show_grid(row_asses1, labels, square_len, "1.png", False, False)
             print("new_cost1", new_cost1)
             print("time1", time.time()-start)
-            row_asses2, new_cost2 = solve_op(ori_embedded, row_asses, "Global", 0, 1, False, None, global_it, 0)
+            row_asses2, new_cost2 = solve_op(ori_embedded, ori_row_asses, "Global", 0, 1, False, None, compact_it, 0)
             # self.show_grid(row_asses2, labels, square_len, "2.png", False, False)
             print("new_cost2", new_cost2)
             print("time2", time.time()-start)
@@ -167,7 +167,7 @@ class gridOptimizer(object):
             elif (alter_best[3] == 0)or(alter_best[2] == 0):
                 ans, new_cost = row_asses1, new_cost1
             else:
-                ans, new_cost = solve_op(ori_embedded, row_asses, "Global", 0.33, 0.33, True, alter_best, global_it, 0)
+                ans, new_cost = solve_op(ori_embedded, ans, "Global", 0, 0.5, True, alter_best, global_it, 0)
                 # self.show_grid(ans, labels, square_len, "4.png", False, False)
             print("new_cost4", new_cost)
             print("time4", time.time()-start)
@@ -176,21 +176,6 @@ class gridOptimizer(object):
         t2 = end2 - start
 
         if useLocal:
-
-            # data = np.load('T-global.npz')
-            # ori_row_asses = data['row_asses']
-            # ans = data['row_asses']
-
-            # if convex_type == "E":
-            #     ans, new_cost = solve_op(ori_embedded, ans, "C", 1, 0, False, None, maxit, maxit2, 2147483647)
-            # else:
-            #     swap_cnt = 2147483647
-
-            # if convex_type == "C":
-            #     ans, new_cost = solve_op(ori_embedded, ans, "E", 1, 0, False, None, maxit, maxit2, 2147483647)
-            #     maxit2 = 1
-            #     swap_cnt = 1
-
             if convex_type == "CE":
                 ans, new_cost = solve_op(ori_embedded, ans, "C", 1, 0, False, None, 0, 3, 2147483647)
                 convex_type = "E"
@@ -212,6 +197,36 @@ class gridOptimizer(object):
             print("new_cost5", new_cost)
             print("time5", time.time()-start)
 
+        if swap_op_order and useGlobal:
+            # row_asses1, new_cost1 = solve_op(ori_embedded, row_asses, "Global", 0, 0, False, None, 0, 0)
+            row_asses1 = ori_row_asses.copy()
+            new_cost1 = self.check_cost_type(ori_embedded, row_asses1, labels, "Global")
+            # self.show_grid(row_asses1, labels, square_len, "1.png", False, False)
+            print("new_cost1", new_cost1)
+            print("time1", time.time() - start)
+            row_asses2, new_cost2 = solve_op(ori_embedded, ori_row_asses, "Global", 0, 1, False, None, compact_it, 0)
+            # self.show_grid(row_asses2, labels, square_len, "2.png", False, False)
+            print("new_cost2", new_cost2)
+            print("time2", time.time() - start)
+
+            alter_best = [0, 0, 1, 1]
+            alter_best[0] = min(new_cost1[0], new_cost2[0])
+            alter_best[2] = max(new_cost1[0], new_cost2[0]) - min(new_cost1[0], new_cost2[0])
+            alter_best[1] = min(new_cost1[1], new_cost2[1])
+            alter_best[3] = max(new_cost1[1], new_cost2[1]) - min(new_cost1[1], new_cost2[1])
+
+            print(alter_best)
+
+            if only_compact:
+                ans, new_cost = row_asses2, new_cost2
+            elif (alter_best[3] == 0) or (alter_best[2] == 0):
+                ans, new_cost = row_asses1, new_cost1
+            else:
+                ans, new_cost = solve_op(ori_embedded, ans, "Global", 0, 0.5, True, alter_best, global_it, 0)
+                # self.show_grid(ans, labels, square_len, "4.png", False, False)
+            print("new_cost4", new_cost)
+            print("time4", time.time() - start)
+
         end = time.time()
         t1 = end - start
 
@@ -226,7 +241,7 @@ class gridOptimizer(object):
         #     new_cost = np.append(new_cost, [new_cost2[2]], None)
 
         new_cost2 = self.check_cost_type(ori_embedded, ans, labels, "T")
-        new_cost = new_cost2.copy()
+        new_cost = np.array([new_cost2[0], new_cost2[1], new_cost2[2]])
         new_cost2 = self.check_cost_type(ori_embedded, ans, labels, "S")
         new_cost = np.append(new_cost, [new_cost2[2]], None)
         new_cost2 = self.check_cost_type(ori_embedded, ans, labels, "T2")
@@ -237,13 +252,13 @@ class gridOptimizer(object):
         new_cost = np.append(new_cost, [new_cost2[2]], None)
         new_cost2 = self.check_cost_type(ori_embedded, ans, labels, "E")
         new_cost = np.append(new_cost, [new_cost2[2]], None)
-        new_cost2 = self.check_cost_type(ori_embedded, ans, labels, "TB")
+        new_cost2 = self.check_cost_type(ori_embedded, ans, labels, "B")
         new_cost = np.append(new_cost, [new_cost2[2]], None)
 
-        return ans, t1, t2, new_cost
+        return ans, t1, t2, new_cost, new_cost2[3]
 
     # 生成gridlayout
-    def grid(self, X_embedded: np.ndarray, labels: np.ndarray = None, type='E', maxit=10, maxit2=5, use_global=True, use_local=True, only_compact=False, swap_cnt=2147483647, pred_labels = None):
+    def grid(self, X_embedded: np.ndarray, labels: np.ndarray = None, type='E', maxit=10, maxit2=5, use_global=True, use_local=True, only_compact=False, swap_cnt=2147483647, pred_labels=None, swap_op_order=False):
         if pred_labels is None:
             pred_labels = labels.copy()
         # 初始化信息
@@ -381,7 +396,7 @@ class gridOptimizer(object):
         print("--------------------------------------------------")
         start = time.time()
 
-        ans, t1, t2, new_cost = self.grid_op(ori_embedded, row_asses, labels, use_global, use_local, type, maxit, maxit2, only_compact, swap_cnt)
+        ans, t1, t2, new_cost, cc = self.grid_op(ori_embedded, row_asses, labels, use_global, use_local, type, maxit, maxit2, only_compact, swap_cnt, swap_op_order)
 
         end = time.time()
         print("end optimize")
@@ -403,7 +418,7 @@ class gridOptimizer(object):
 
         if (maxit+maxit2) == 0:
             t1 = t2
-        return ans, t1, t0, labels, new_cost
+        return ans, t1, t0, labels, new_cost, cc
 
     def translateAdjust(self, ori_embedded, row_asses, labels, useGlobal=True, useLocal=True, convex_type="E", maxit=5, maxit2=2, change_list=np.array([]), translate=np.array([0, 0])):
         N = row_asses.shape[0]
@@ -439,7 +454,7 @@ class gridOptimizer(object):
 
         # self.show_grid(new_ori_row_asses, labels, square_len, 'new2.png')
 
-        new_row_asses, _, _, _ = self.grid_op(X_embedded, new_ori_row_asses, labels, useGlobal, useLocal, convex_type, maxit, maxit2)
+        new_row_asses, _, _, _, _ = self.grid_op(X_embedded, new_ori_row_asses, labels, useGlobal, useLocal, convex_type, maxit, maxit2)
         # print("done")
         change = np.ones(shape=N, dtype='bool')
         new_row_asses = np.array(gridlayoutOpt.optimizeInnerCluster(ori_embedded, new_row_asses, labels, change))
@@ -476,8 +491,11 @@ class gridOptimizer(object):
         for i in range(num - 1, -1, -1):
             row = []
             for j in range(num):
-                row.append(plt.cm.tab20(grid_labels[row_asses[num * i + j]]))
-                # row.append(cm.color(grid_labels[row_asses[num * i + j]]))
+                if grid_labels[row_asses[num * i + j]]==-1:
+                    row.append((1, 1, 1, 1))
+                else:
+                    row.append(plt.cm.tab20(grid_labels[row_asses[num * i + j]]))
+                    # row.append(cm.color(grid_labels[row_asses[num * i + j]]))
             data.append(row)
         plt.cla()
         plt.imshow(data)

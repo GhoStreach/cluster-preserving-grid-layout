@@ -29,36 +29,48 @@ void checkConnectDFS(
 
 //check connectivity of "gid" grid with the cluster of label "lb"
 double checkConnect(
-    const int grid_asses[],
-    const int cluster_labels[],
-    int checked[],
-    const int &gid, const int &lb,
-    const int &N, const int &num, const int &square_len, const int &maxLabel,
-    int check_cnt=1, bool show=false) {
-    if(grid_asses[gid]>=num)return 0;
-    int id = grid_asses[gid];
+const int grid_asses[],
+const int cluster_labels[],
+int checked[],
+const int &gid, const int &lb,
+const int &N, const int &num, const int &square_len, const int &maxLabel,
+int check_cnt=1) {
     if(check_cnt==1)
         for(int i=0;i<N;i++)checked[i] = 0;
     int x = gid/square_len;
     int y = gid%square_len;
     int connect = 4;
     checkConnectDFS(grid_asses, cluster_labels, checked, check_cnt, x, y, gid, lb, num, square_len, connect);
+
     int labelCheckCnt = 0;
     int tot = 0;
-    for(int id=0;id<num;id++)
-    if(cluster_labels[id]==lb){
-        tot += 1;
+    double cluster_x=0, cluster_y=0;
+    for(int gid1=0;gid1<N;gid1++) {
+        int id1 = grid_asses[gid1];
+        if((id1<num)&&(cluster_labels[id1]==lb)){
+            tot += 1;
+            double x = 1.0*(gid1/square_len)/square_len;
+            double y = 1.0*(gid1%square_len)/square_len;
+            cluster_x += x;
+            cluster_y += y;
+        }
     }
-    for(int gid=0;gid<N;gid++){
-        if(checked[gid]>=check_cnt)labelCheckCnt += 1;
+    cluster_x /= tot;
+    cluster_y /= tot;
+
+    for(int gid1=0;gid1<N;gid1++){
+        if(checked[gid1]>=check_cnt)labelCheckCnt += 1;
     }
     if(tot==0)return 0;
     double per = 1.0*labelCheckCnt/tot;
 
-    if(show)printf("%d %d\n", labelCheckCnt, tot);
-
     if(per>0.5)return 0;
-    else return 1;
+    else {
+        double x = 1.0*(gid/square_len)/square_len;
+        double y = 1.0*(gid%square_len)/square_len;
+        double dist = getDist(x, y, cluster_x, cluster_y);
+        return dist*dist;
+    }
 }
 
 //check connectivity of every grid with the cluster of its label
@@ -67,7 +79,8 @@ double checkConnectForAll(
     const int cluster_labels[],
     int checked[],
     const int &N, const int &num, const int &square_len, const int &maxLabel,
-    int connect=8) {
+    int connect=8,
+    bool if_disconn[]=nullptr) {
 
     int *a = new int[N];
     int *b = new int[maxLabel];
@@ -76,6 +89,9 @@ double checkConnectForAll(
 
     int check_cnt = 1;
     for(int i=0;i<N;i++)checked[i] = 0;
+    if(if_disconn!=nullptr){
+        for(int i=0;i<N;i++)if_disconn[i] = false;
+    }
 
     for(int gid=0;gid<N;gid++)
     if(grid_asses[gid]<num){
@@ -95,6 +111,31 @@ double checkConnectForAll(
         a[checked[gid]-1] += 1;
     }
 
+    double *cluster_x = new double[maxLabel];
+    double *cluster_y = new double[maxLabel];
+    int *cluster_cnt = new int[maxLabel];
+    for(int i=0;i<maxLabel;i++){
+        cluster_x[i] = 0;
+        cluster_y[i] = 0;
+        cluster_cnt[i] = 0;
+    }
+
+    for(int gid=0;gid<N;gid++){    // every positon
+        double x = 1.0*(gid/square_len)/square_len;
+        double y = 1.0*(gid%square_len)/square_len;
+        int id = grid_asses[gid];
+        if(id >= num)continue;
+        int label = cluster_labels[id];
+        cluster_x[label] += x;
+        cluster_y[label] += y;
+        cluster_cnt[label] += 1;
+    }
+    for(int i=0;i<maxLabel;i++){
+        if(cluster_cnt[i]==0)continue;
+        cluster_x[i] /= cluster_cnt[i];
+        cluster_y[i] /= cluster_cnt[i];
+    }
+
     double ret = 0;
     for(int gid=0;gid<N;gid++)
     if(grid_asses[gid]<num){
@@ -102,11 +143,21 @@ double checkConnectForAll(
         int lb = cluster_labels[id];
         double per = 1.0*a[checked[gid]-1]/b[lb];
         if(per<=0.5){
-            ret += 1;
+//            ret += 1;
+            double x = 1.0*(gid/square_len)/square_len;
+            double y = 1.0*(gid%square_len)/square_len;
+            double dist = getDist(x, y, cluster_x[lb], cluster_y[lb]);
+            ret += dist*dist;
+            if(if_disconn!=nullptr){
+                if_disconn[gid] = true;
+            }
             // printf("cn wrong %d\n", gid);
         }
     }
 
+    delete[] cluster_x;
+    delete[] cluster_y;
+    delete[] cluster_cnt;
     delete[] a;
     delete[] b;
     return ret;
@@ -134,10 +185,6 @@ void getConnectCostMatrixArrayToArray(
             int x1 = gid1/square_len;
             int y1 = gid1%square_len;
 
-            if((std::abs(x1-x2)>10)||(std::abs(y1-y2)>10)) {
-                ret_a[gid2*N+id1] = 1;
-            }
-
             int lb = maxLabel;
             if(id1<num)lb = cluster_labels[id1];    // label(cluster) of the element
             if(cost_matrix[gid2*(maxLabel+1)+lb]<0){
@@ -148,7 +195,6 @@ void getConnectCostMatrixArrayToArray(
                     cost = checkConnect(grid_asses, cluster_labels, checked, gid2, lb, N, num, square_len, maxLabel);
                 }
                 cost_matrix[gid2*(maxLabel+1)+lb] = cost;
-                // grid_asses[gid2] = tmp;
             }
             ret_a[gid2*N+id1] = cost_matrix[gid2*(maxLabel+1)+lb];
         }

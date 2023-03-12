@@ -1,85 +1,168 @@
-#ifndef _MEASURE_BOUNDARY_H
-#define _MEASURE_BOUNDARY_H
+#ifndef _MEASURE_DEVIATION_H
+#define _MEASURE_DEVIATION_H
 
 #include "../utils/convexHull.h"
 #include "../utils/base.h"
-#include <cmath>
 #include <iostream>
-#include <set>
+#include <cmath>
 #include <float.h>
 
-double measureOfRotate(
+// constants
+namespace Deviation {
+    const double epsilon = 0.01;
+    const double alpha = 0.2;   // convexity = exp(-alpha*deviation)
+    const double beta = 0.4;    // convexity = 1/(1+beta*deviation)
+}
+
+// 将 deviation 转化为 convexity measure 的策略
+enum ConvertStrategy {
+    EXPONENTIAL, // 指数函数 exp(-kx)
+    INVERSE // 反比例函数 1/(1+kx)
+};
+
+// deviation 的计算方法
+enum DeviationStrategy {
+    SIMPLE_DEVIATION,   // sinple index of nonconvexity
+    TOTAL_DEVIATION     // total index of nonconvexity
+};
+
+// 计算点 (x, y) 到线段 { (x1, y1), (x2, y2) } 的距离
+double pointDist2Line(
+const double &x, const double &y,
+const double &x1, const double &y1,
+const double &x2, const double &y2) {
+    double p = std::abs((y2-y1)*x - (x2-x1)*y + x2*y1 - x1*y2);
+    double q = std::sqrt((y2-y1)*(y2-y1) + (x2-x1)*(x2-x1));
+    return p / q;
+}
+
+// scale_rate: sqrt(多边形围成区域的面积)
+// 引入 scale_rate 的原因：使凸性度量在放缩变换下保持不变
+// (论文里似乎没有这么做)
+double getSimpleDeviation(
 const int grids[][2],
 const int grids_n,
-const double angle) {
-    double (*rotate_grids)[2] = new double[grids_n][2];
-    double x_min = DBL_MAX;
-    double y_min = DBL_MAX;
-    double x_max = -DBL_MAX;
-    double y_max = -DBL_MAX;
+const double scale_rate) {
+    double (*convex_hull)[2] = new double[grids_n][2];
     for (int i = 0; i < grids_n; i++) {
-        rotate_grids[i][0] = grids[i][0] * std::cos(angle) - grids[i][1] * std::sin(angle);
-        rotate_grids[i][1] = grids[i][0] * std::sin(angle) + grids[i][1] * std::cos(angle);
-
-        double x = rotate_grids[i][0];
-        double y = rotate_grids[i][1];
-        if (x < x_min) x_min = x;
-        if (x > x_max) x_max = x;
-        if (y < y_min) y_min = y;
-        if (y > y_max) y_max = y;
+        convex_hull[i][0] = grids[i][0];
+        convex_hull[i][1] = grids[i][1];
     }
-    // for (int i = 0; i < grids_n; i++) {
-    //     std::cout << rotate_grids[i][0] << ", " << rotate_grids[i][1] << '\n';
-    // }
-    double per2 = 2 * (x_max - x_min + y_max - y_min);
+    int vertex_num = getConvexHull(grids_n, convex_hull);
 
-    double per1 = 0;
-    for (int i = 0; i < grids_n - 1; i++) {
-        per1 += std::abs(rotate_grids[i][0] - rotate_grids[i+1][0]);
-        per1 += std::abs(rotate_grids[i][1] - rotate_grids[i+1][1]);
+    // 找到 grids[] 里与 convex_hull[0] 相同的顶点
+    int index = 0;
+    for (int i = 0; i < grids_n; i++) {
+        if ((double)grids[i][0] == convex_hull[0][0]
+            && (double)grids[i][1] == convex_hull[0][1]) {
+            index = i;
+            break;
+        }
     }
-    per1 += std::abs(rotate_grids[0][0] - rotate_grids[grids_n-1][0]);
-    per1 += std::abs(rotate_grids[0][1] - rotate_grids[grids_n-1][1]);
-    delete [] rotate_grids;
 
-    return per2 / per1;
+    double result = 0;
+    for (int pos = 0; pos < vertex_num; pos++) {
+        int new_pos = (pos + 1) % vertex_num;
+        double x1 = convex_hull[pos][0];
+        double y1 = convex_hull[pos][1];
+        double x2 = convex_hull[new_pos][0];
+        double y2 = convex_hull[new_pos][1];
+        while (true) {
+            index = (index + 1) % grids_n;
+            if ((double)grids[index][0] == x2
+            && (double)grids[index][1] == y2) {
+                break;
+            }
+            // else
+            double x = (double)grids[index][0];
+            double y = (double)grids[index][1];
+            double deviation = pointDist2Line(x, y, x1, y1, x2, y2);
+            result = std::max(result, deviation);
+        }
+    }
+
+    delete [] convex_hull;
+    return result / scale_rate;
+}
+
+double getTotalDeviation(
+const int grids[][2],
+const int grids_n,
+const double scale_rate) {
+    double (*convex_hull)[2] = new double[grids_n][2];
+    for (int i = 0; i < grids_n; i++) {
+        convex_hull[i][0] = grids[i][0];
+        convex_hull[i][1] = grids[i][1];
+    }
+    int vertex_num = getConvexHull(grids_n, convex_hull);
+
+    int index = 0;
+    for (int i = 0; i < grids_n; i++) {
+        if ((double)grids[i][0] == convex_hull[0][0]
+        && (double)grids[i][1] == convex_hull[0][1]) {
+            index = i;
+            break;
+        }
+    }
+
+    double result = 0;
+    for (int pos = 0; pos < vertex_num; pos++) {
+        int new_pos = (pos + 1) % vertex_num;
+        double x1 = convex_hull[pos][0];
+        double y1 = convex_hull[pos][1];
+        double x2 = convex_hull[new_pos][0];
+        double y2 = convex_hull[new_pos][1];
+        double deviation = 0;
+        while (true) {
+            index = (index + 1) % grids_n;
+            if ((double)grids[index][0] == x2
+            && (double)grids[index][1] == y2) {
+                break;
+            }
+            // else
+            double x = (double)grids[index][0];
+            double y = (double)grids[index][1];
+            deviation = std::max(deviation, pointDist2Line(x, y, x1, y1, x2, y2) / scale_rate);
+        }
+        result = (deviation > Deviation::epsilon) ? result + deviation : result;
+    }
+
+    delete [] convex_hull;
+    return result;
+}
+
+inline double deviation2Convexity_1(
+const double deviation) {
+    return std::exp(-Deviation::alpha*deviation);
+}
+
+inline double deviation2Convexity_2(
+const double deviation) {
+    return 1 / (1 + Deviation::beta * deviation);
 }
 
 double convexityMeasure(
 const int grids[][2],
-const int grids_n) {
-    double (*convex_hull)[2] = new double[grids_n][2];
-    for (int i = 0; i < grids_n; ++i) {
-        convex_hull[i][0] = grids[i][0];
-        convex_hull[i][1] = grids[i][1];
+const int grids_n, const double scale_rate,
+const int convert=ConvertStrategy::EXPONENTIAL,
+const int deviation=DeviationStrategy::TOTAL_DEVIATION) {
+    if (convert == ConvertStrategy::EXPONENTIAL
+    && deviation == DeviationStrategy::SIMPLE_DEVIATION) {
+        return deviation2Convexity_1(getSimpleDeviation(grids, grids_n, scale_rate));
+    } else if (convert == ConvertStrategy::EXPONENTIAL
+    && deviation == DeviationStrategy::TOTAL_DEVIATION) {
+        return deviation2Convexity_1(getTotalDeviation(grids, grids_n, scale_rate));
+    } else if (convert == ConvertStrategy::INVERSE
+    && deviation == DeviationStrategy::SIMPLE_DEVIATION) {
+        return deviation2Convexity_2(getSimpleDeviation(grids, grids_n, scale_rate));
+    }  else if (convert == ConvertStrategy::INVERSE
+    && deviation == DeviationStrategy::TOTAL_DEVIATION) {
+        return deviation2Convexity_2(getTotalDeviation(grids, grids_n, scale_rate));
     }
-    int vertex_num = getConvexHull(grids_n, convex_hull); // @vertex_num: num of vertices in the convex hull
-    
-    // compute all the rotation angles
-    std::set<double> angles;
-    for (int i = 0; i < vertex_num; i++) {
-        double x1 = convex_hull[i][0];
-        double y1 = convex_hull[i][1];
-        size_t j = (i+1) % vertex_num;
-        double x2 = convex_hull[j][0];
-        double y2 = convex_hull[j][1];
-        double angle = std::atan2(y2 - y1, x2 - x1);
-        angles.insert(-angle);
-        angles.insert(M_PI_2 - angle);
-    }
-
-    double measure = 1.0;
-    for (std::set<double>::const_iterator iter = angles.begin(); iter != angles.end(); ++iter) {
-        measure = std::min(measure, measureOfRotate(grids, grids_n, *iter));
-        // std::cout << "angle: " << *(iter) / M_PI * 180 << '\n';
-        // std::cout << "measure: " << measureOfRotate(grids, grids_n, *iter) << '\n';
-    }
-
-    delete [] convex_hull;
-    return measure;
+    else return 0;
 }
 
-std::vector<double> checkConvexForBArray(
+std::vector<double> checkConvexForDevArray(
 const int grid_asses[],
 const int cluster_labels[],
 const int &N, const int &num, const int &square_len, const int &maxLabel) {
@@ -220,7 +303,7 @@ const int &N, const int &num, const int &square_len, const int &maxLabel) {
         //     std::cout << nodes[i][0] << ", " << nodes[i][1] << '\n';
         // }
 
-        tmp_S0 = convexityMeasure(nodes, cnt) * tmp_S1;
+        tmp_S0 = convexityMeasure(nodes, cnt, std::sqrt(label_count[li])) * tmp_S1;
         // std::cout << "tmp_S0: " << tmp_S0 << ", tmp_S1: " << tmp_S1 << '\n';
 
         S1 += tmp_S1;
@@ -238,7 +321,7 @@ const int &N, const int &num, const int &square_len, const int &maxLabel) {
     return S_pair;
 }
 
-std::vector<double> checkConvexForB(
+std::vector<double> checkConvexForDev(
 const std::vector<int> &_grid_asses,
 const std::vector<int> &_cluster_labels) {
     int N = _grid_asses.size();
@@ -252,22 +335,22 @@ const std::vector<int> &_cluster_labels) {
     for(int i=0;i<N;i++)grid_asses[i] = _grid_asses[i];
     for(int i=0;i<num;i++)cluster_labels[i] = _cluster_labels[i];
 
-    std::vector<double> ret = checkConvexForBArray(grid_asses, cluster_labels, N, num, square_len, maxLabel);
+    std::vector<double> ret = checkConvexForDevArray(grid_asses, cluster_labels, N, num, square_len, maxLabel);
 
     delete[] grid_asses;
     delete[] cluster_labels;
-    
+
     return ret;
 }
 
-std::vector<double> checkCostForB(
+std::vector<double> checkCostForDev(
     const double Similar_cost_matrix[],
     const double Compact_cost_matrix[],
     const int grid_asses[], const int cluster_labels[],
     const int &N, const int &num, const int &square_len, const int &maxLabel,
     const double &alpha, const double &beta) {
 
-    std::vector<double> S_pair = checkConvexForBArray(grid_asses, cluster_labels, N, num, square_len, maxLabel);
+    std::vector<double> S_pair = checkConvexForDevArray(grid_asses, cluster_labels, N, num, square_len, maxLabel);
     double correct=0, full=0;
     full = S_pair[1];
     correct = S_pair[1]-S_pair[0];
