@@ -22,6 +22,9 @@
 #include "convexity/newMeasureTB.h"
 #include "convexity/newMeasureBoundary.h"
 #include "convexity/newMeasureDeviation.h"
+#include "convexity/newMeasureAlphaTriples.h"
+#include "convexity/newMeasureMoS.h"
+
 
 // simple cluster, python interface
 std::vector<int> getClusters(
@@ -453,11 +456,11 @@ int maxit=10) {
                         change[gid] = false;
                         int lb = -1;
                         if(grid_asses[gid]<num)lb = cluster_labels[grid_asses[gid]];
-                        for(int xx=-2;xx<=2;xx++) {    // grids[x1+xx][y1+yy]
+                        for(int xx=-1;xx<=1;xx++) {    // grids[x1+xx][y1+yy]
                             int x2 = x1+xx;
                             if((x2<0)||(x2>=square_len))continue;
                             int bias2 = x2*square_len;
-                            for(int yy=-2;yy<=2;yy++) {
+                            for(int yy=-1;yy<=1;yy++) {
                                 int y2 = y1+yy;
                                 if((y2<0)||(y2>=square_len))continue;
                                 int gid2 = bias2+y2;
@@ -733,8 +736,6 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
         best = checkCostForT(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, false, old_grid_asses, old_T_pair)[0];
     else if(type=="Global")
         best = checkCostForGlobal(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta)[0];
-    else if(type=="CplusE")
-        best = checkCostForCE(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta)[0];
     else if(type=="T2")
         best = checkCostForT2(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, false, old_grid_asses, old_T_pair, old_D_pair)[0];
 
@@ -759,7 +760,7 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
 
     int max_num = 2;    // max bar length to search
     for(int it=0;it<maxit;it++){    //枚举轮次
-        if(type=="E"||type=="S"||type=="C"||type=="2020"||type=="T"||type=="CplusE"||type=="T2"||type=="TB"){
+        if(type=="E"||type=="S"||type=="C"||type=="2020"||type=="T"||type=="T2"||type=="TB"){
 
             int update_flag = 0;    // if layout been updated
             int improve_flag = 0;    // if find a better layout
@@ -925,8 +926,6 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
                             now_best =checkCostForT(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, true, old_grid_asses, old_T_pair)[0];
                             for(int tmp_gid=0;tmp_gid<N;tmp_gid++)old_grid_asses[tmp_gid] = grid_asses[tmp_gid];
                         }
-                        else if(type=="CplusE")
-                            now_best =checkCostForCE(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, false, label_pairs)[0];
                         else if(type=="T2") {
                             now_best =checkCostForT2(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, true, old_grid_asses, old_T_pair, old_D_pair)[0];
                             for(int tmp_gid=0;tmp_gid<N;tmp_gid++)old_grid_asses[tmp_gid] = grid_asses[tmp_gid];
@@ -976,8 +975,6 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
                                 cost = checkCostForTB(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, label_pairs, lb1, lb2)[0];
                             else if(type=="T")
                                 cost = checkCostForT(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, old_grid_asses, old_T_pair)[0];
-                            else if(type=="CplusE")
-                                cost = checkCostForCE(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, label_pairs, lb1, lb2)[0];
                             else if(type=="T2")
                                 cost = checkCostForT2(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, old_grid_asses, old_T_pair, old_D_pair)[0];
 
@@ -1037,8 +1034,6 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
                                 cost = checkCostForT(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, true, old_grid_asses, old_T_pair)[0];
                                 for(int tmp_gid=0;tmp_gid<N;tmp_gid++)old_grid_asses[tmp_gid] = grid_asses[tmp_gid];
                             }
-                            else if(type=="CplusE")
-                                cost = checkCostForCE(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta)[0];
                             else if(type=="T2") {
                                 cost = checkCostForT2(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, true, true, old_grid_asses, old_T_pair, old_D_pair)[0];
                                 for(int tmp_gid=0;tmp_gid<N;tmp_gid++)old_grid_asses[tmp_gid] = grid_asses[tmp_gid];
@@ -1156,8 +1151,6 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
     else if(type=="Global")
         cost = checkCostForGlobal(Similar_cost_matrix, Compact_cost_matrix, ans, cluster_labels, N, num, square_len, maxLabel, alpha, beta);
     // printf("cost %.6lf %.6lf %.6lf\n", cost[1], cost[2], cost[3]);
-    else if(type=="CplusE")
-        cost = checkCostForCE(Similar_cost_matrix, Compact_cost_matrix, ans, cluster_labels, N, num, square_len, maxLabel, alpha, beta);
 
     std::vector<double> ret(N+3, 0);
     for(int i=0;i<N;i++)ret[i] = ans[i];
@@ -1182,6 +1175,124 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
 }
 
 // check cost
+std::vector<double> checkCostForOne(
+const std::vector<std::vector<double>> &_ori_embedded,
+const std::vector<int> &_grid_asses,
+const std::vector<int> &_cluster_labels,
+const std::string &type,
+double alpha, double beta) {
+
+    int N = _grid_asses.size();
+    int num = _cluster_labels.size();
+    int square_len = ceil(sqrt(N));
+    int maxLabel = 0;
+    for(int i=0;i<num;i++)maxLabel = max(maxLabel, _cluster_labels[i]+1);
+    int *grid_asses = new int[N];
+//    int *ori_grid_asses = new int[N];
+    double (*ori_embedded)[2] = new double[N][2];
+    int *cluster_labels = new int[num];
+    for(int i=0;i<N;i++)grid_asses[i] = _grid_asses[i];
+//    for(int i=0;i<N;i++)ori_grid_asses[i] = _ori_grid_asses[i];
+    for(int i=0;i<N;i++) {
+        ori_embedded[i][0] = _ori_embedded[i][0];
+        ori_embedded[i][1] = _ori_embedded[i][1];
+    }
+    for(int i=0;i<num;i++)cluster_labels[i] = _cluster_labels[i];
+
+    double *Similar_cost_matrix = new double[N*N];
+    getOriginCostMatrixArrayToArray(ori_embedded, cluster_labels, Similar_cost_matrix, N, num, square_len, maxLabel);
+
+    double *Compact_cost_matrix = new double[N*N];
+    getCompactCostMatrixArrayToArray(grid_asses, cluster_labels, Compact_cost_matrix, N, num, square_len, maxLabel);
+
+    double *old_T_pair = new double[2];    // convexity of triples
+    double *old_D_pair = new double[N*N*2];
+    int *old_grid_asses = new int[N];
+    for(int i=0;i<N;i++)old_grid_asses[i] = grid_asses[i];
+
+    bool *if_disconn = new bool[N];   // disconnect of now grids
+    for(int i=0;i<N;i++)if_disconn[i] = false;
+    int *checked = new int[N];
+    double c_cost = checkConnectForAll(grid_asses, cluster_labels, checked, N, num, square_len, maxLabel, 8, if_disconn);
+
+    std::vector<double> ret(0, 0);
+    for(int lb=0;lb<maxLabel;lb++) {
+//        printf("start lb %d\n", lb);
+        int *ans = new int[N];
+        for(int gid=0;gid<N;gid++)ans[gid] = -1;
+        int cnt = 0;
+        for(int gid=0;gid<N;gid++)
+        if((if_disconn[gid]==false)&&((grid_asses[gid]<num)&&(cluster_labels[grid_asses[gid]]==lb))) {
+            ans[gid] = cnt;
+            cnt += 1;
+        }
+        if(cnt==0) {
+            delete[] ans;
+            continue;
+        }
+
+        int cnt2 = cnt;
+        int *ans_labels = new int[cnt];
+
+        for(int id=0;id<cnt;id++)ans_labels[id] = 0;
+        for(int gid=0;gid<N;gid++)
+        if(ans[gid]==-1) {
+            ans[gid] = cnt2;
+            cnt2 += 1;
+        }
+
+        std::vector<double> cost(4, -1);
+        if(type=="E")
+            cost = checkCostForE(Similar_cost_matrix, Compact_cost_matrix, ans, ans_labels, N, cnt, square_len, 1, alpha, beta);
+        else if(type=="S")
+            cost = checkCostForS(Similar_cost_matrix, Compact_cost_matrix, ans, ans_labels, N, cnt, square_len, 1, alpha, beta);
+        else if(type=="C")
+            cost = checkCostForC(Similar_cost_matrix, Compact_cost_matrix, ans, ans_labels, N, cnt, square_len, 1, alpha, beta);
+        else if(type=="2020")
+            cost = checkCostFor2020(Similar_cost_matrix, Compact_cost_matrix, ans, ans_labels, N, cnt, square_len, 1, alpha, beta);
+        else if(type=="TB")
+            cost = checkCostForTB(Similar_cost_matrix, Compact_cost_matrix, ans, ans_labels, N, cnt, square_len, 1, alpha, beta);
+        else if(type=="T") {
+            cost = checkCostForT(Similar_cost_matrix, Compact_cost_matrix, ans, ans_labels, N, cnt, square_len, 1, alpha, beta, true, false, old_grid_asses, old_T_pair);
+            for(int tmp_gid=0;tmp_gid<N;tmp_gid++)old_grid_asses[tmp_gid] = ans[tmp_gid];
+        }
+        else if(type=="T2") {
+            cost = checkCostForT2(Similar_cost_matrix, Compact_cost_matrix, ans, ans_labels, N, cnt, square_len, 1, alpha, beta, true, false, old_grid_asses, old_T_pair, old_D_pair);
+            for(int tmp_gid=0;tmp_gid<N;tmp_gid++)old_grid_asses[tmp_gid] = ans[tmp_gid];
+        }
+        else if(type=="B")
+            cost = checkCostForB(Similar_cost_matrix, Compact_cost_matrix, ans, ans_labels, N, cnt, square_len, 1, alpha, beta);
+        else if(type=="Dev")
+            cost = checkCostForDev(Similar_cost_matrix, Compact_cost_matrix, ans, ans_labels, N, cnt, square_len, 1, alpha, beta);
+        else if(type=="AlphaT")
+            cost = checkCostForAlphaT(Similar_cost_matrix, Compact_cost_matrix, ans, ans_labels, N, cnt, square_len, 1, alpha, beta);
+        else if(type=="MoS")
+            cost = checkCostForMoS(Similar_cost_matrix, Compact_cost_matrix, ans, ans_labels, N, cnt, square_len, 1, alpha, beta);
+        // printf("cost %.6lf %.6lf %.6lf\n", cost[1], cost[2], cost[3]);
+
+        ret.push_back(cost[3]);
+
+        delete[] ans;
+        delete[] ans_labels;
+    }
+
+    delete[] if_disconn;
+    delete[] checked;
+
+    delete[] old_grid_asses;
+    delete[] old_T_pair;
+    delete[] old_D_pair;
+
+    delete[] grid_asses;
+    delete[] ori_embedded;
+    delete[] cluster_labels;
+    delete[] Similar_cost_matrix;
+    delete[] Compact_cost_matrix;
+
+    return ret;
+}
+
+// check convexity one cluster
 std::vector<double> checkCostForAll(
 const std::vector<std::vector<double>> &_ori_embedded,
 const std::vector<int> &_grid_asses,
@@ -1249,9 +1360,10 @@ double alpha, double beta) {
         cost = checkCostForDev(Similar_cost_matrix, Compact_cost_matrix, ans, cluster_labels, N, num, square_len, maxLabel, alpha, beta);
     else if(type=="Global")
         cost = checkCostForGlobal(Similar_cost_matrix, Compact_cost_matrix, ans, cluster_labels, N, num, square_len, maxLabel, alpha, beta);
-    // printf("cost %.6lf %.6lf %.6lf\n", cost[1], cost[2], cost[3]);
-    else if(type=="CplusE")
-        cost = checkCostForCE(Similar_cost_matrix, Compact_cost_matrix, ans, cluster_labels, N, num, square_len, maxLabel, alpha, beta);
+    else if(type=="AlphaT")
+        cost = checkCostForAlphaT(Similar_cost_matrix, Compact_cost_matrix, ans, cluster_labels, N, num, square_len, maxLabel, alpha, beta);
+    else if(type=="MoS")
+        cost = checkCostForMoS(Similar_cost_matrix, Compact_cost_matrix, ans, cluster_labels, N, num, square_len, maxLabel, alpha, beta);
 
     std::vector<double> ret(N+4, 0);
     for(int i=0;i<N;i++)ret[i] = ans[i];
@@ -1376,6 +1488,7 @@ const int maxit = 1) {
     bool *is_border = new bool[N];
     for(int id=0;id<N;id++)is_border[id] = false;
     for(int i=0;i<ml_N2;i++)is_border[_must_links2[i][0]] = true;
+
 
     #pragma omp parallel for num_threads(THREADS_NUM)
     for(int gid2=0;gid2<N;gid2++){
@@ -1502,6 +1615,7 @@ PYBIND11_MODULE(gridlayoutOpt, m) {
     m.def("optimizeBA", &optimizeBA, "A function to optimize");
     m.def("optimizeSwap", &optimizeSwap, "A function to optimize");
     m.def("checkCostForAll", &checkCostForAll, "A function to check cost");
+    m.def("checkCostForOne", &checkCostForOne, "A function to check cost");
     m.def("optimizeInnerCluster", &optimizeInnerCluster, "A function to optimize");
     m.def("optimizeInnerClusterWithMustLink", &optimizeInnerClusterWithMustLink, "A function to optimize");
     m.def("find_alpha", &find_alpha, "A function");

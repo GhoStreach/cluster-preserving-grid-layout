@@ -443,7 +443,7 @@ const int &N, const int &num, const int &square_len, const int &maxLabel) {
             }else ans += flag;
         }
     }
-    
+
     return ans;
 }
 
@@ -609,6 +609,72 @@ const int &N, const int &num, const int &square_len, const int &maxLabel) {
                     E_grid[gid] += 1;
                 }
             }else E_grid[gid] += 1;
+        }
+    }
+
+    return;
+}
+
+//count edges of every grid with different cluster from it
+void checkEdgeArray4(
+int E_grid[][4],
+const int grid_asses[],
+const int cluster_labels[],
+const int &N, const int &num, const int &square_len, const int &maxLabel) {
+
+    for(int i=0;i<N;i++){
+        for(int j=0;j<4;j++)
+            E_grid[i][j] = 0;
+    }
+
+    // #pragma omp parallel for num_threads(THREADS_NUM)
+    for(int i=0;i<square_len;i++){
+        int bias0 = i*square_len;
+        for(int j=0;j<square_len;j++){
+            int gid = bias0+j;
+            int id = grid_asses[gid];
+            int lb = maxLabel;
+            if(id<num)lb = cluster_labels[id];
+
+            if(i-1>=0){
+                int gid1 = gid-square_len;
+                int id1 = grid_asses[gid1];
+                int lb1 = maxLabel;
+                if(id1<num)lb1 = cluster_labels[id1];
+                if(lb1!=lb){
+                    E_grid[gid][0] += 1;
+                }
+            }else E_grid[gid][0] += 1;
+
+            if(i+1<square_len){
+                int gid1 = gid+square_len;
+                int id1 = grid_asses[gid1];
+                int lb1 = maxLabel;
+                if(id1<num)lb1 = cluster_labels[id1];
+                if(lb1!=lb){
+                    E_grid[gid][1] += 1;
+                }
+            }else E_grid[gid][1] += 1;
+
+            if(j-1>=0){
+                int gid1 = gid-1;
+                int id1 = grid_asses[gid1];
+                int lb1 = maxLabel;
+                if(id1<num)lb1 = cluster_labels[id1];
+                if(lb1!=lb){
+                    E_grid[gid][2] += 1;
+                }
+            }else E_grid[gid][2] += 1;
+
+            if(j+1<square_len){
+                int gid1 = gid+1;
+                int id1 = grid_asses[gid1];
+                int lb1 = maxLabel;
+                if(id1<num)lb1 = cluster_labels[id1];
+                if(lb1!=lb){
+                    E_grid[gid][3] += 1;
+                }
+            }else E_grid[gid][3] += 1;
         }
     }
 

@@ -19,6 +19,10 @@ bool save=false, bool load=false, double label_pairs[][2]=nullptr, int mainLabel
     int *head = new int[maxLabel];
     int *last = new int[num];
     int *element_asses = new int[num];
+    int (*E_grid)[4] = new int[N][4];
+
+    checkEdgeArray4(E_grid, grid_asses, cluster_labels, N, num, square_len, maxLabel);
+
     for(int i=0;i<maxLabel;i++)head[i] = -1;
 
     for(int gid=0;gid<N;gid++)
@@ -38,15 +42,26 @@ bool save=false, bool load=false, double label_pairs[][2]=nullptr, int mainLabel
             continue;
         }
         int cnt=0;
+
         double tmp_S0=0, tmp_S1=0;
         for(int id=head[li];id>=0;id=last[id]){
             int gid = element_asses[id];
             int x = gid/square_len;
             int y = gid%square_len;
-            nodes[cnt][0] = x; nodes[cnt][1] = y; cnt++;
-            nodes[cnt][0] = x+1; nodes[cnt][1] = y; cnt++;
-            nodes[cnt][0] = x; nodes[cnt][1] = y+1; cnt++;
-            nodes[cnt][0] = x+1; nodes[cnt][1] = y+1; cnt++;
+
+            if((E_grid[gid][0]==1)&&(E_grid[gid][2]==1)) {
+                nodes[cnt][0] = x; nodes[cnt][1] = y; cnt++;
+            }
+            if((E_grid[gid][1]==1)&&(E_grid[gid][2]==1)) {
+                nodes[cnt][0] = x+1; nodes[cnt][1] = y; cnt++;
+            }
+            if((E_grid[gid][0]==1)&&(E_grid[gid][3]==1)) {
+                nodes[cnt][0] = x; nodes[cnt][1] = y+1; cnt++;
+            }
+            if((E_grid[gid][1]==1)&&(E_grid[gid][3]==1)) {
+                nodes[cnt][0] = x+1; nodes[cnt][1] = y+1; cnt++;
+            }
+
             tmp_S0 += 1;
         }
         cnt = getConvexHull(cnt, nodes);
@@ -65,6 +80,7 @@ bool save=false, bool load=false, double label_pairs[][2]=nullptr, int mainLabel
     delete[] head;
     delete[] last;
     delete[] element_asses;
+    delete[] E_grid;
     delete[] nodes;
     return S_pair;
 }
