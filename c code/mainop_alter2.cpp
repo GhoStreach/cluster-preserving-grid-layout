@@ -375,6 +375,7 @@ int maxit=10) {
 
     double best = 2147483647;    // cost(loss) of the best ans
     double c_best = 0;    // connectivity cost(constraint) of the best ans
+
     std::vector<double> best_cost(4, 2147483647);    // full cost(loss) of the best ans
     double last_c_cost;    // connectivity cost(constraint) of the last ans
     std::vector<double> last_cost(4, 2147483647);    // full cost(loss) of the last ans
@@ -400,7 +401,7 @@ int maxit=10) {
     // printf("cost %.6lf %.6lf %.6lf\n",last_cost[1], last_cost[2], last_cost[3]);
 
     c_best = N*checkConnectForAll(grid_asses, cluster_labels, checked, N, num, square_len, maxLabel, 4);
-    c_best = 0;
+    if(type=="Global")c_best = 0;
     last_c_cost = c_best;
 
     double pre_time = (clock()-start)/CLOCKS_PER_SEC;
@@ -574,6 +575,7 @@ int maxit=10) {
         else cost = 0;
 
         double c_cost = N*checkConnectForAll(grid_asses, cluster_labels, checked, N, num, square_len, maxLabel, 4);
+        if(type=="Global")c_cost = 0;
 
         if(alter&&(type=="Global")){
             printf("cost1 %.2lf %.2lf\n", new_cost[1], last_cost[1]);
@@ -590,7 +592,6 @@ int maxit=10) {
             }
         }
 
-        c_cost = 0;
         last_cost2 = last_cost;
         last_cost = new_cost;
         last_c_cost = c_cost;
@@ -908,6 +909,7 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
 
                         double now_best = 0;    // cost of best bar2 to swap
                         double now_c_best = 0;    // connectivity cost(constraint) of best bar2 to swap
+                        double now_b_best = 0;    // edges with blank grids
 
                         if(type=="E")
                             now_best =checkCostForE(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta)[0];
@@ -960,6 +962,7 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
 
                             double cost = 0;    // new cost
                             double c_cost = 0;    // new connectivity cost
+                            double b_cost = 0;
 
                             if(type=="E")
                                 cost = checkCostForE(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta)[0];
@@ -980,13 +983,28 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
 
                             c_cost = N*checkConnectForAll(grid_asses, cluster_labels, checked, N, num, square_len, maxLabel);
 
+                            for(int k=0;k<now_num;k++){
+                                b_cost -= 0.000001*checkBlankForGrid(ori_gid1[k], grid_asses, cluster_labels, N, num, square_len, maxLabel);
+                            }
+                            for(int k=0;k<now_num;k++){
+                                b_cost -= 0.000001*checkBlankForGrid(worst_gid[j*now_num+k], grid_asses, cluster_labels, N, num, square_len, maxLabel);
+                            }
+
                             for(int k=0;k<now_num;k++){    //swap back
                                 std::swap(grid_asses[ori_gid1[k]], grid_asses[worst_gid[j*now_num+k]]);
                             }
 
-                            if(cost+c_cost<now_best+now_c_best){
+                            for(int k=0;k<now_num;k++){
+                                b_cost += 0.000001*checkBlankForGrid(ori_gid1[k], grid_asses, cluster_labels, N, num, square_len, maxLabel);
+                            }
+                            for(int k=0;k<now_num;k++){
+                                b_cost += 0.000001*checkBlankForGrid(worst_gid[j*now_num+k], grid_asses, cluster_labels, N, num, square_len, maxLabel);
+                            }
+
+                            if(cost+c_cost+b_cost<now_best+now_c_best+now_b_best){
                                 now_best = cost;
                                 now_c_best = c_cost;
+                                now_b_best = b_cost;
                                 best_gid = j;
                             }
                         }
@@ -1028,7 +1046,7 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
 
                             c_cost = N*checkConnectForAll(grid_asses, cluster_labels, checked, N, num, square_len, maxLabel, 8, if_disconn);  // update disconnect
 
-                            if(cost+c_cost<best+c_best){    // find a better layout
+                            if(cost+c_cost+now_b_best<best+c_best){    // find a better layout
                                 // printf("swap %d %d\n", grid_asses[ori_gid1[0]], grid_asses[worst_gid[best_gid*now_num]]);
 
                                 swap_cnt -= 1;

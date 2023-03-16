@@ -153,6 +153,11 @@ double checkConnectForAll(
             }
             // printf("cn wrong %d\n", gid);
         }
+        if(b[lb]<=1){
+            if(if_disconn!=nullptr){
+                if_disconn[gid] = true;
+            }
+        }
     }
 
     delete[] cluster_x;
@@ -350,6 +355,96 @@ const std::vector<int> &_cluster_labels) {
     delete[] cluster_labels;
     delete[] ret_a;
     return ret;
+}
+
+//count the blank-nonblank edges of grid "gid"
+double checkBlankForGrid(
+const int &gid,
+const int grid_asses[],
+const int cluster_labels[],
+const int &N, const int &num, const int &square_len, const int &maxLabel) {
+
+    int i = gid/square_len;
+    int j = gid%square_len;
+
+    int ans=0;
+
+    int flag=0;
+    if(grid_asses[gid]<num)flag=1;
+
+    if(i-1>=0){    // up
+        int gid1 = gid-square_len;
+        int id1 = grid_asses[gid1];
+        if(id1<num){
+            ans += flag^1;
+        }else ans += flag;
+    }else ans += flag;
+
+    if(i+1<square_len){    //down
+        int gid1 = gid+square_len;
+        int id1 = grid_asses[gid1];
+        if(id1<num){
+            ans += flag^1;
+        }else ans += flag;
+    }else ans += flag;
+
+    if(j-1>=0){    //left
+        int gid1 = gid-1;
+        int id1 = grid_asses[gid1];
+        if(id1<num){
+            ans += flag^1;
+        }else ans += flag;
+    }else ans += flag;
+
+    if(j+1<square_len){    //right
+        int gid1 = gid+1;
+        int id1 = grid_asses[gid1];
+        if(id1<num){
+            ans += flag^1;
+        }else ans += flag;
+    }else ans += flag;
+
+    return ans;
+}
+
+//count the blank-nonblank edges of all grids
+double checkBlankForAll(
+const int grid_asses[],
+const int cluster_labels[],
+const int &N, const int &num, const int &square_len, const int &maxLabel) {
+
+    int ans=0;
+
+    for(int i=0;i<square_len;i++) {
+        int bias = i*square_len;
+        for(int j=0;j<square_len;j++) {
+            int gid = bias+j;
+            int flag=0;
+            if(grid_asses[gid]<num)flag=1;
+
+            if(i-1<0)ans += flag;    //up
+
+            if(i+1<square_len){    //down
+                int gid1 = gid+square_len;
+                int id1 = grid_asses[gid1];
+                if(id1<num){
+                    ans += flag^1;
+                }else ans += flag;
+            }else ans += flag;
+
+            if(j-1<0)ans += flag;    //left
+
+            if(j+1<square_len){    //right
+                int gid1 = gid+1;
+                int id1 = grid_asses[gid1];
+                if(id1<num){
+                    ans += flag^1;
+                }else ans += flag;
+            }else ans += flag;
+        }
+    }
+    
+    return ans;
 }
 
 //count the edges of grid "gid" with each clusters
