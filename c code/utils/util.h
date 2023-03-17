@@ -876,4 +876,63 @@ std::vector<double> checkCostForGlobal(
     return ret;
 }
 
+int soft_choose(double a[], int n) {
+    double *c = new double[n];
+    double tot = 0;
+    int last = 0;
+    for(int i=0;i<n;i++) {
+        double tmp = 0;
+        if(a[i]>0) {
+            tmp = a[i];
+            last = i;
+        }
+        c[i] = tmp;
+        tot = tot + tmp;
+    }
+
+    double rd = rand()/RAND_MAX*tot;
+    int ans = last;
+    for(int i=0;i<n;i++) {
+        if(c[i]>0) {
+            rd -= c[i];
+            if(rd<=0){
+                ans = i;
+                break;
+            }
+        }
+    }
+    delete[] c;
+    return ans;
+}
+
+int best_k_choose(double a[], int n, int k) {
+    double *c = new double[n];
+    int *o = new int[n];
+    int last = 0;
+    int cnt = 0;
+    for(int i=0;i<n;i++) {
+        o[i] = i;
+        double tmp = 0;
+        if(a[i]>0) {
+            tmp = a[i];
+            last = i;
+            cnt += 1;
+        }
+        c[i] = tmp;
+    }
+    k = std::min(k, cnt);
+    for(int i=0;i<n-1;i++)
+    for(int j=i+1;j<n;j++)
+    if(c[o[i]]<c[o[j]]){
+        int tmp = o[i];
+        o[i] = o[j];
+        o[j] = tmp;
+    }
+
+    int rd = rand()%k;
+
+    delete[] c;
+    return o[rd];
+}
+
 #endif

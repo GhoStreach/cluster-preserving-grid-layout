@@ -25,7 +25,6 @@
 #include "convexity/newMeasureAlphaTriples.h"
 #include "convexity/newMeasureMoS.h"
 
-
 // simple cluster, python interface
 std::vector<int> getClusters(
 const std::vector<int> &_grid_asses,
@@ -679,7 +678,7 @@ const std::vector<int> &_cluster_labels,
 const std::vector<bool> &_change,
 const std::string &type,
 double alpha, double beta,
-int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
+int maxit=10, int choose_k=1, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
 
     // ----------------------------------preprocess step start----------------------------------------
 
@@ -745,7 +744,7 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
 
     // ----------------------------------swap step start----------------------------------------
 
-    int downMax = 2;
+    int downMax = 3;
     int downCnt = 0;
     srand(seed);
 
@@ -780,6 +779,11 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
             int *labels_cnt2 = new int[maxLabel+1];    // count of edges with every clusters, bar2
             int check_cnt = 1;
             for(int i=0;i<N;i++)checked[i]=0;
+
+            double *all_cost = new double[2*N];    // cost of swapping
+            double *all_c_cost = new double[2*N];    // connectivity cost(constraint) of swapping
+            double *all_b_cost = new double[2*N];    // edges with blank grids
+            double *all_dec = new double[2*N];    // edges with blank grids
 
             double start = clock();
 
@@ -908,9 +912,11 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
                         }
                         // std::random_shuffle(order2, order2+worst_cnt);
 
-                        double now_best = 0;    // cost of best bar2 to swap
-                        double now_c_best = 0;    // connectivity cost(constraint) of best bar2 to swap
+                        double now_best = 0;    // cost of swapping with best bar2
+                        double now_c_best = 0;    // connectivity cost(constraint) of swapping with best bar2
                         double now_b_best = 0;    // edges with blank grids
+                        double ori_cost = 0;    // cost
+                        double ori_c_cost = 0;    // connectivity cost(constraint)
 
                         if(type=="E")
                             now_best =checkCostForE(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta)[0];
@@ -932,6 +938,9 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
                         }
 
                         now_c_best = N*checkConnectForAll(grid_asses, cluster_labels, checked, N, num, square_len, maxLabel);
+
+                        ori_cost = now_best;
+                        ori_c_cost = now_c_best;
 
                         int best_gid = -1;    // best bar2
 
@@ -998,6 +1007,11 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
                                 b_cost += 0.000001*checkBlankForGrid(worst_gid[j*now_num+k], grid_asses, cluster_labels, N, num, square_len, maxLabel);
                             }
 
+                            all_cost[j] = cost;
+                            all_c_cost[j] = c_cost;
+                            all_b_cost[j] = b_cost;
+                            all_dec[j] = ori_cost + ori_c_cost - cost - c_cost - b_cost;
+
                             if(cost+c_cost+b_cost<now_best+now_c_best+now_b_best){
                                 now_best = cost;
                                 now_c_best = c_cost;
@@ -1005,7 +1019,11 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
                                 best_gid = j;
                             }
                         }
+
                         if(best_gid!=-1){    // choose the best bar2 to swap
+
+//                            best_gid = soft_choose(all_dec, worst_cnt);
+                            best_gid = best_k_choose(all_dec, worst_cnt, choose_k);
 
                             if(swap_cnt<=0) {
                                 break;
@@ -1065,6 +1083,11 @@ int maxit=10, int seed=10, bool innerBiMatch=true, int swap_cnt=214748347) {
             delete[] order2;
             delete[] labels_cnt;
             delete[] labels_cnt2;
+
+            delete[] all_cost;
+            delete[] all_c_cost;
+            delete[] all_b_cost;
+            delete[] all_dec;
 
             double tmp = (clock()-start)/CLOCKS_PER_SEC;
             s_time += tmp;

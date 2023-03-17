@@ -133,21 +133,27 @@ def body(dataset, grid_width, flag, tt):
     # for type in ["T", "S", "ST", "TS", "C", "E", "EC", "CE"]:
     # for type in ["C", "E", "EC", "CE"]:
     # for type in ["O", "T", "ST", "EC"]:
-    for type in ["O", "ST", "EC"]:
+    for type in ["O", "T", "C"]:
     # for type in ["T", "C", "E", "EC", "CE"]:
         use_type = type
         # for showT in ["", "-NoneText"]:
-        for showT in ["-NoneText"]:
+        showT = "-NoneText"
+        for choose_k in [0, 1]:
+            if (type != "O") and (choose_k == 0):
+                continue
+            if (type == "O") and (choose_k != 0):
+                continue
 
             # for op_type in ["base", "compact", "global", "full"]:
-            for op_type in ["base", "global", "local", "full", "full2"]:
+            # for op_type in ["base", "global", "local", "full", "full2"]:
+            for op_type in ["base", "global", "local", "full", "full2"'']:
             # for op_type in ["global", "full"]:
                 if (type != "O") and ((op_type == "base") or (op_type == 'global')):
                     continue
                 if (type == "O") and ((op_type != "base") and (op_type != 'global')):
                     continue
-                # if ((type != "EC") and (type != "ST")) and (op_type == "local"):
-                #     continue
+                if ((type != "C") and (type != "T")) and ((op_type == "local") or (op_type == "full2")):
+                    continue
 
                 swap_op_order = False
                 if op_type == "full2":
@@ -160,7 +166,7 @@ def body(dataset, grid_width, flag, tt):
                     m2 = 3
                 if type == "C":
                     m1 = 0
-                    m2 = 3
+                    m2 = 9
                 if type == "CplusE":
                     m1 = 0
                     m2 = 3
@@ -198,25 +204,28 @@ def body(dataset, grid_width, flag, tt):
                 if op_type == "compact":
                     only_compact = True
 
-                file_path = os.path.join(path, type + "-" + op_type + showT + ".svg")
-                save_path = os.path.join(path, type + "-" + op_type + ".npz")
+                # file_path = os.path.join(path, type + "-" + op_type + showT + ".png")
+                # save_path = os.path.join(path, type + "-" + op_type + ".npz")
+                file_path = os.path.join(path, type + "-" + op_type + showT + "-" + str(choose_k) + ".png")
+                save_path = os.path.join(path, type + "-" + op_type + "-" + str(choose_k) + ".npz")
 
                 Optimizer = gridOptimizer()
                 # print("check done", BASolver.checkConvex(np.array(row_asses_c), np.array(s_labels)))
                 # row_asses_m, heat = BASolver.grid3(s_embeddings, s_labels, 'E')
-                row_asses_m, t1, t2, new_labels, new_cost, cc = Optimizer.grid(s_embeddings, s_labels, use_type, m1, m2,
-                                                                           use_global, use_local, only_compact, swap_op_order=swap_op_order, swap_cnt=2147483647, pred_labels=plabels[samples])
+                row_asses_m, t1, t2, new_labels, new_cost, cc, ori_row = Optimizer.grid(s_embeddings, s_labels, use_type, m1, m2,
+                                                                           use_global, use_local, only_compact, swap_op_order=swap_op_order, swap_cnt=2147483647, pred_labels=plabels[samples], choose_k=choose_k)
 
                 show_labels = new_labels
                 show_labels = np.array(show_labels)
 
-                labels_dict = {}
-                dict_num = 0
-                for i in range(show_labels.shape[0]):
-                    if show_labels[i] not in labels_dict:
-                        labels_dict.update({show_labels[i]: dict_num})
-                        dict_num += 1
-                    show_labels[i] = labels_dict[show_labels[i]]
+                if show_labels.max() >= 15:
+                    labels_dict = {}
+                    dict_num = 0
+                    for i in range(show_labels.shape[0]):
+                        if show_labels[i] not in labels_dict:
+                            labels_dict.update({show_labels[i]: dict_num})
+                            dict_num += 1
+                        show_labels[i] = labels_dict[show_labels[i]]
 
                 tmp = np.full(row_asses_m.shape[0] - show_labels.shape[0], dtype='int', fill_value=-1)
                 show_labels = np.concatenate((show_labels, tmp), axis=0)
@@ -231,9 +240,9 @@ def body(dataset, grid_width, flag, tt):
                         s_samples = tsne_file['true_id'][samples]
                     if dataset=="OoDAnimals3":
                         s_samples = tsne_file['true_id'][samples]
-                    np.savez(save_path, row_asses=row_asses_m, labels=new_labels, samples=s_samples)
+                    np.savez(save_path, row_asses=row_asses_m, labels=new_labels, samples=s_samples, ori_row=ori_row)
                 print("new_cost", new_cost)
-                name = "\'" + dataset + "\'-" + str(grid_width) + "-" + str(flag) + "-" + type + "-" + op_type
+                name = "\'" + dataset + "\'-" + str(grid_width) + "-" + str(flag) + "-" + type + "-" + op_type + "-" + str(choose_k)
                 print(name, tt)
 
                 # new_cost = np.append(new_cost, [t1 + t2, t2], None)
@@ -296,7 +305,7 @@ def body(dataset, grid_width, flag, tt):
 
 # for dataset in ["MNIST", "STL-10", "CIFAR10", "USPS",  "Weather", "Clothes", "FashionMNIST", "Animals", "Indian food", "Wifi"]:
 # for dataset in ["Animals", "Indian food", "Wifi"]:
-# for dataset in ["CIFAR10"]:
+# for dataset in ["Clothes"]:
 # for dataset in ["StanfordDog-10"]:
 # for dataset in ["FashionMNIST"]:
 for dataset in ["MNIST", "Isolet", "CIFAR10", "USPS", "Animals", "Weather", "Wifi", "Indian food", "Clothes", "FashionMNIST", "Texture", "StanfordDog-10"]:
@@ -308,7 +317,7 @@ for dataset in ["MNIST", "Isolet", "CIFAR10", "USPS", "Animals", "Weather", "Wif
             # if grid_width == 20:
             #     max_tt = 50
             for tt in range(max_tt):
-                body(dataset, grid_width, flag, tt)
+                body(dataset, grid_width, flag, tt+60)
     import numpy as np
     import pickle
     f = open("grid_result/"+dataset+"/data.pkl", 'wb+')
@@ -353,6 +362,6 @@ for key in dict:
     print(key, "----", dict3[key])
 
 import pickle
-f = open("all_data.pkl", 'wb+')
+f = open("all_data3.pkl", 'wb+')
 pickle.dump({"dict": dict}, f, 0)
 f.close()

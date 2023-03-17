@@ -84,7 +84,7 @@ class gridOptimizer(object):
         return new_cost
 
     # 优化gridlayout
-    def grid_op(self, ori_embedded, row_asses, labels, useGlobal=True, useLocal=True, convex_type="E", maxit=10, maxit2=5, only_compact=False, swap_cnt=2147483647, swap_op_order=False):
+    def grid_op(self, ori_embedded, row_asses, labels, useGlobal=True, useLocal=True, convex_type="E", maxit=10, maxit2=5, only_compact=False, swap_cnt=2147483647, swap_op_order=False, choose_k=1):
 
         start = time.time()
         N = row_asses.shape[0]
@@ -125,7 +125,7 @@ class gridOptimizer(object):
                 #     seed_list = [0, 10, 20]
                 tmp_row_asses = np.array(
                     gridlayoutOpt.optimizeSwap(ori_embedded, new_row_asses, labels, change, type, alpha, beta,
-                                            maxit2, seed, True, swap_cnt))
+                                            maxit2, choose_k, seed, True, swap_cnt))
                 for i in range(N):
                     new_row_asses2[i] = round(tmp_row_asses[i])
                 new_cost = np.array([tmp_row_asses[N], tmp_row_asses[N+1], tmp_row_asses[N+2]])
@@ -244,7 +244,7 @@ class gridOptimizer(object):
         new_cost = np.array([new_cost2[0], new_cost2[1], new_cost2[2]])
         new_cost2 = self.check_cost_type(ori_embedded, ans, labels, "S")
         new_cost = np.append(new_cost, [new_cost2[2]], None)
-        new_cost2 = self.check_cost_type(ori_embedded, ans, labels, "T2")
+        new_cost2 = self.check_cost_type(ori_embedded, ans, labels, "AlphaT")
         new_cost = np.append(new_cost, [new_cost2[2]], None)
         new_cost2 = self.check_cost_type(ori_embedded, ans, labels, "2020")
         new_cost = np.append(new_cost, [new_cost2[2]], None)
@@ -258,7 +258,7 @@ class gridOptimizer(object):
         return ans, t1, t2, new_cost, new_cost2[3]
 
     # 生成gridlayout
-    def grid(self, X_embedded: np.ndarray, labels: np.ndarray = None, type='E', maxit=10, maxit2=5, use_global=True, use_local=True, only_compact=False, swap_cnt=2147483647, pred_labels=None, swap_op_order=False):
+    def grid(self, X_embedded: np.ndarray, labels: np.ndarray = None, type='E', maxit=10, maxit2=5, use_global=True, use_local=True, only_compact=False, swap_cnt=2147483647, pred_labels=None, swap_op_order=False, choose_k=1):
         if pred_labels is None:
             pred_labels = labels.copy()
         # 初始化信息
@@ -396,7 +396,7 @@ class gridOptimizer(object):
         print("--------------------------------------------------")
         start = time.time()
 
-        ans, t1, t2, new_cost, cc = self.grid_op(ori_embedded, row_asses, labels, use_global, use_local, type, maxit, maxit2, only_compact, swap_cnt, swap_op_order)
+        ans, t1, t2, new_cost, cc = self.grid_op(ori_embedded, row_asses, labels, use_global, use_local, type, maxit, maxit2, only_compact, swap_cnt, swap_op_order, choose_k=choose_k)
 
         end = time.time()
         print("end optimize")
@@ -418,7 +418,7 @@ class gridOptimizer(object):
 
         if (maxit+maxit2) == 0:
             t1 = t2
-        return ans, t1, t0, labels, new_cost, cc
+        return ans, t1, t0, labels, new_cost, cc, ori_row_asses
 
     def translateAdjust(self, ori_embedded, row_asses, labels, useGlobal=True, useLocal=True, convex_type="E", maxit=5, maxit2=2, change_list=np.array([]), translate=np.array([0, 0])):
         N = row_asses.shape[0]
@@ -491,11 +491,11 @@ class gridOptimizer(object):
         for i in range(num - 1, -1, -1):
             row = []
             for j in range(num):
-                if grid_labels[row_asses[num * i + j]]==-1:
-                    row.append((1, 1, 1, 1))
-                else:
-                    row.append(plt.cm.tab20(grid_labels[row_asses[num * i + j]]))
-                    # row.append(cm.color(grid_labels[row_asses[num * i + j]]))
+                # if grid_labels[row_asses[num * i + j]]==-1:
+                #     row.append((1, 1, 1, 1))
+                # else:
+                #     row.append(plt.cm.tab20(grid_labels[row_asses[num * i + j]]))
+                row.append(cm.color(grid_labels[row_asses[num * i + j]]))
             data.append(row)
         plt.cla()
         plt.imshow(data)
