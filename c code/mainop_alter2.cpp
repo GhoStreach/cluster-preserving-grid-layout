@@ -948,6 +948,8 @@ int maxit=10, int choose_k=1, int seed=10, bool innerBiMatch=true, int swap_cnt=
                             check_turns2 += 1;
                             int j = order2[jj];
 
+                            all_dec[j] = 0;
+
                             int flag = 0;
                             for(int k1=0;k1<now_num;k1++)
                             for(int k2=0;k2<now_num;k2++){

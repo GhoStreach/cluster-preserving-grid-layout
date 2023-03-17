@@ -146,7 +146,7 @@ def body(dataset, grid_width, flag, tt):
 
             # for op_type in ["base", "compact", "global", "full"]:
             # for op_type in ["base", "global", "local", "full", "full2"]:
-            for op_type in ["base", "global", "local", "full", "full2"'']:
+            for op_type in ["base", "global", "local", "full", "full2"]:
             # for op_type in ["global", "full"]:
                 if (type != "O") and ((op_type == "base") or (op_type == 'global')):
                     continue
