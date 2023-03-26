@@ -1205,7 +1205,9 @@ const std::vector<std::vector<double>> &_ori_embedded,
 const std::vector<int> &_grid_asses,
 const std::vector<int> &_cluster_labels,
 const std::string &type,
-double alpha, double beta) {
+double alpha, double beta,
+int min_grids=0) {
+    min_grids = std::max(1, min_grids);
 
     int N = _grid_asses.size();
     int num = _cluster_labels.size();
@@ -1251,7 +1253,7 @@ double alpha, double beta) {
             ans[gid] = cnt;
             cnt += 1;
         }
-        if(cnt==0) {
+        if(cnt<min_grids) {
             delete[] ans;
             continue;
         }
@@ -1295,11 +1297,160 @@ double alpha, double beta) {
             cost = checkCostForMoS(Similar_cost_matrix, Compact_cost_matrix, ans, ans_labels, N, cnt, square_len, 1, alpha, beta);
         // printf("cost %.6lf %.6lf %.6lf\n", cost[1], cost[2], cost[3]);
 
+
         ret.push_back(cost[3]);
 
         delete[] ans;
         delete[] ans_labels;
     }
+
+    delete[] if_disconn;
+    delete[] checked;
+
+    delete[] old_grid_asses;
+    delete[] old_T_pair;
+    delete[] old_D_pair;
+
+    delete[] grid_asses;
+    delete[] ori_embedded;
+    delete[] cluster_labels;
+    delete[] Similar_cost_matrix;
+    delete[] Compact_cost_matrix;
+
+    return ret;
+}
+
+// check cost
+std::vector<double> checkCostForAllShapes(
+const std::vector<std::vector<double>> &_ori_embedded,
+const std::vector<int> &_grid_asses,
+const std::vector<int> &_cluster_labels,
+const std::string &type,
+double alpha, double beta,
+int min_grids=0) {
+    min_grids = std::max(1, min_grids);
+
+    int N = _grid_asses.size();
+    int num = _cluster_labels.size();
+    int square_len = ceil(sqrt(N));
+    int maxLabel = 0;
+    for(int i=0;i<num;i++)maxLabel = max(maxLabel, _cluster_labels[i]+1);
+    int *grid_asses = new int[N];
+//    int *ori_grid_asses = new int[N];
+    double (*ori_embedded)[2] = new double[N][2];
+    int *cluster_labels = new int[num];
+    for(int i=0;i<N;i++)grid_asses[i] = _grid_asses[i];
+//    for(int i=0;i<N;i++)ori_grid_asses[i] = _ori_grid_asses[i];
+    for(int i=0;i<N;i++) {
+        ori_embedded[i][0] = _ori_embedded[i][0];
+        ori_embedded[i][1] = _ori_embedded[i][1];
+    }
+    for(int i=0;i<num;i++)cluster_labels[i] = _cluster_labels[i];
+
+    double *Similar_cost_matrix = new double[N*N];
+    getOriginCostMatrixArrayToArray(ori_embedded, cluster_labels, Similar_cost_matrix, N, num, square_len, maxLabel);
+
+    double *Compact_cost_matrix = new double[N*N];
+    getCompactCostMatrixArrayToArray(grid_asses, cluster_labels, Compact_cost_matrix, N, num, square_len, maxLabel);
+
+    double *old_T_pair = new double[2];    // convexity of triples
+    double *old_D_pair = new double[N*N*2];
+    int *old_grid_asses = new int[N];
+    for(int i=0;i<N;i++)old_grid_asses[i] = grid_asses[i];
+
+    bool *if_disconn = new bool[N];   // disconnect of now grids
+    for(int i=0;i<N;i++)if_disconn[i] = false;
+    int *checked = new int[N];
+    double c_cost = checkConnectForAll(grid_asses, cluster_labels, checked, N, num, square_len, maxLabel, 8, if_disconn);
+
+    std::vector<double> ret(0, 0);
+    int clusters_cnt = 0;
+    int all_cnt = 0;
+    int *all_ans = new int[N];
+    int *all_labels = new int[N];
+    for(int gid=0;gid<N;gid++)all_ans[gid] = -1;
+
+    for(int lb=0;lb<maxLabel;lb++) {
+//        printf("start lb %d\n", lb);
+        int cnt = 0;
+        for(int gid=0;gid<N;gid++)
+        if((if_disconn[gid]==false)&&((grid_asses[gid]<num)&&(cluster_labels[grid_asses[gid]]==lb))) {
+            cnt += 1;
+        }
+        if(cnt<min_grids) {
+            continue;
+        }
+
+        for(int gid=0;gid<N;gid++)
+        if((if_disconn[gid]==false)&&((grid_asses[gid]<num)&&(cluster_labels[grid_asses[gid]]==lb))) {
+            all_ans[gid] = all_cnt;
+            all_labels[all_cnt] = clusters_cnt;
+            all_cnt += 1;
+        }
+        clusters_cnt += 1;
+    }
+
+    int all_cnt2 = all_cnt;
+
+    for(int gid=0;gid<N;gid++)
+    if(all_ans[gid]==-1) {
+        all_ans[gid] = all_cnt2;
+        all_cnt2 += 1;
+    }
+
+    if(all_cnt==0) {
+        delete[] all_ans;
+        delete[] all_labels;
+
+        delete[] if_disconn;
+        delete[] checked;
+
+        delete[] old_grid_asses;
+        delete[] old_T_pair;
+        delete[] old_D_pair;
+
+        delete[] grid_asses;
+        delete[] ori_embedded;
+        delete[] cluster_labels;
+        delete[] Similar_cost_matrix;
+        delete[] Compact_cost_matrix;
+        return ret;
+    }
+
+    std::vector<double> cost(4, -1);
+
+    if(type=="E")
+        cost = checkCostForE(Similar_cost_matrix, Compact_cost_matrix, all_ans, all_labels, N, all_cnt, square_len, clusters_cnt, alpha, beta);
+    else if(type=="S")
+        cost = checkCostForS(Similar_cost_matrix, Compact_cost_matrix, all_ans, all_labels, N, all_cnt, square_len, clusters_cnt, alpha, beta);
+    else if(type=="C")
+        cost = checkCostForC(Similar_cost_matrix, Compact_cost_matrix, all_ans, all_labels, N, all_cnt, square_len, clusters_cnt, alpha, beta);
+    else if(type=="2020")
+        cost = checkCostFor2020(Similar_cost_matrix, Compact_cost_matrix, all_ans, all_labels, N, all_cnt, square_len, clusters_cnt, alpha, beta);
+    else if(type=="TB")
+        cost = checkCostForTB(Similar_cost_matrix, Compact_cost_matrix, all_ans, all_labels, N, all_cnt, square_len, clusters_cnt, alpha, beta);
+    else if(type=="T") {
+        cost = checkCostForT(Similar_cost_matrix, Compact_cost_matrix, all_ans, all_labels, N, all_cnt, square_len, clusters_cnt, alpha, beta, true, false, old_grid_asses, old_T_pair);
+        for(int tmp_gid=0;tmp_gid<N;tmp_gid++)old_grid_asses[tmp_gid] = all_ans[tmp_gid];
+    }
+    else if(type=="T2") {
+        cost = checkCostForT2(Similar_cost_matrix, Compact_cost_matrix, all_ans, all_labels, N, all_cnt, square_len, clusters_cnt, alpha, beta, true, false, old_grid_asses, old_T_pair, old_D_pair);
+        for(int tmp_gid=0;tmp_gid<N;tmp_gid++)old_grid_asses[tmp_gid] = all_ans[tmp_gid];
+    }
+    else if(type=="B")
+        cost = checkCostForB(Similar_cost_matrix, Compact_cost_matrix, all_ans, all_labels, N, all_cnt, square_len, clusters_cnt, alpha, beta);
+    else if(type=="Dev")
+        cost = checkCostForDev(Similar_cost_matrix, Compact_cost_matrix, all_ans, all_labels, N, all_cnt, square_len, clusters_cnt, alpha, beta);
+    else if(type=="AlphaT")
+        cost = checkCostForAlphaT(Similar_cost_matrix, Compact_cost_matrix, all_ans, all_labels, N, all_cnt, square_len, clusters_cnt, alpha, beta);
+    else if(type=="MoS")
+        cost = checkCostForMoS(Similar_cost_matrix, Compact_cost_matrix, all_ans, all_labels, N, all_cnt, square_len, clusters_cnt, alpha, beta);
+        // printf("cost %.6lf %.6lf %.6lf\n", cost[1], cost[2], cost[3]);
+
+    ret.push_back(cost[3]);
+
+    delete[] all_ans;
+    delete[] all_labels;
 
     delete[] if_disconn;
     delete[] checked;
@@ -1359,7 +1510,7 @@ double alpha, double beta) {
     int *old_grid_asses = new int[N];
     for(int i=0;i<N;i++)old_grid_asses[i] = grid_asses[i];
 
-    // printf("final cost\n");
+    printf("final cost\n");
     std::vector<double> cost(4, -1);
     if(type=="E")
         cost = checkCostForE(Similar_cost_matrix, Compact_cost_matrix, ans, cluster_labels, N, num, square_len, maxLabel, alpha, beta);
@@ -1641,6 +1792,7 @@ PYBIND11_MODULE(gridlayoutOpt, m) {
     m.def("optimizeSwap", &optimizeSwap, "A function to optimize");
     m.def("checkCostForAll", &checkCostForAll, "A function to check cost");
     m.def("checkCostForOne", &checkCostForOne, "A function to check cost");
+    m.def("checkCostForAllShapes", &checkCostForAllShapes, "A function to check cost");
     m.def("optimizeInnerCluster", &optimizeInnerCluster, "A function to optimize");
     m.def("optimizeInnerClusterWithMustLink", &optimizeInnerClusterWithMustLink, "A function to optimize");
     m.def("find_alpha", &find_alpha, "A function");
