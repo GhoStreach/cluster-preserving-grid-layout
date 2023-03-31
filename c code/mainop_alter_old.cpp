@@ -258,8 +258,7 @@ std::vector<int> solveBiMatchChange(
 const double dist[],
 const int N,
 const bool change[],
-const int grid_asses[],
-const std::string &type="km") {
+const int grid_asses[]) {
     int* changeList = new int[N];
     int N2 = 0;
     for(int i=0;i<N;i++)if(change[i]){
@@ -278,12 +277,7 @@ const std::string &type="km") {
                 new_dist[bias+j] = dist[bias0+id];
             }
         }
-
-        std::vector<int> ret0(N2, 0);
-        if(type=="km")
-            ret0 = solveKMArray(new_dist, N2, N2);
-        else
-            ret0 = solveLapArray(new_dist, N2, std::max(50, int(0.15*N)));
+        std::vector<int> ret0 = solveKMArray(new_dist, N2, N2);
 
         std::vector<int> ret(N, 0);
         for(int gid=0;gid<N;gid++)ret[gid] = grid_asses[gid];
@@ -297,11 +291,7 @@ const std::string &type="km") {
         delete[] changeList;
         return ret;
     }else {    // solve all vertex
-        std::vector<int> ret(N, 0);
-        if(type=="km")
-            ret = solveKMArray(dist, N, N);
-        else
-            ret = solveLapArray(dist, N, std::max(50, int(0.15*N)));
+        std::vector<int> ret = solveKMArray(dist, N, N);
         delete[] changeList;
         return ret;
     }
@@ -318,12 +308,7 @@ const std::string &type,
 double alpha, double beta,
 bool alter=false, const std::vector<double> alter_best=std::vector<double>(3,1),
 int maxit=10) {
-
     double start = clock();
-
-//    struct timespec tot_time1 = {0, 0};
-//    struct timespec tot_time2 = {0, 0};
-//    clock_gettime(CLOCK_REALTIME, &tot_time1);
 
     // ----------------------------------preprocess step start----------------------------------------
     printf("preprocess step start\n");
@@ -351,6 +336,16 @@ int maxit=10) {
 
     getOriginCostMatrixArrayToArray(ori_embedded, cluster_labels, Similar_cost_matrix, N, num, square_len, maxLabel);
 
+//    #pragma omp parallel for num_threads(THREADS_NUM)
+//    for(int i1=0;i1<N;i1++){
+//        int bias = i1*N;
+//        for(int i2=0;i2<N;i2++){
+//            int i = bias+i2;
+//            // Similar_cost_matrix[i] /= 2*(1.0/12+1.0/12);
+//            // Similar_cost_matrix[i] *= 2;
+//        }
+//    }
+
     if((type=="T")&&(global_cnt>=0)){    // clear the memory of measure by triples
         delete[] global_triples;
         delete[] global_triples_head;
@@ -358,6 +353,7 @@ int maxit=10) {
         global_cnt = -1;
         global_N = -1;
     }
+
 
     double *old_cost_matrix = new double[N*N];
     double *Compact_cost_matrix = new double[N*N];
@@ -387,14 +383,9 @@ int maxit=10) {
     std::vector<double> last_cost(4, 2147483647);    // full cost(loss) of the last ans
     std::vector<double> last_cost2(4, 2147483647);    // full cost(loss) of the last ans
 
-    if((alter)||(beta>0))
-        getCompactCostMatrixArrayToArray(grid_asses, cluster_labels, Compact_cost_matrix, N, num, square_len, maxLabel);
+    getCompactCostMatrixArrayToArray(grid_asses, cluster_labels, Compact_cost_matrix, N, num, square_len, maxLabel);
 
     int *checked = new int[N];
-
-    double cv_time = 0;
-//    struct timespec cv_start_time = {0, 0};
-//    clock_gettime(CLOCK_REALTIME, &cv_start_time);
 
     if(type=="E")
         last_cost = checkCostForE(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta);
@@ -419,10 +410,6 @@ int maxit=10) {
 
     // ----------------------------------preprocess step done----------------------------------------
     printf("preprocess step done\n");
-
-//    clock_gettime(CLOCK_REALTIME, &tot_time2);
-//    std::cout << "pre time passed is: " << (tot_time2.tv_sec - cv_start_time.tv_sec)*1000 + (tot_time2.tv_nsec - cv_start_time.tv_nsec)/1000000 << "ms" << std::endl;
-//    cv_time += ((tot_time2.tv_sec - cv_start_time.tv_sec)*1000 + (tot_time2.tv_nsec - cv_start_time.tv_nsec)/1000000);
 
     // ----------------------------------iterater step start----------------------------------------
     printf("iterater step start\n");
@@ -453,17 +440,9 @@ int maxit=10) {
     double avg_alpha=0, avg_beta=0;
     double ori_alpha=alpha, ori_beta=beta;
 
-    int tot_it = 0;
-
     for(int it=0;it<maxit;it++) {    //iterate optimization
-        tot_it = it+1;
-
-        double start, tmp, start0;
+        double start, tmp;
         start = clock();
-        start0 = clock();
-
-//        struct timespec time1 = {0, 0};
-//        clock_gettime(CLOCK_REALTIME, &time1);
 
         if(type!="Global"){    // only adjust border
             int rand_tmp = rand()%2;
@@ -514,16 +493,13 @@ int maxit=10) {
         else if(type=="2020")
             getCostMatrixFor2020ArrayToArray(grid_asses, cluster_labels, Convex_cost_matrix, N, num, square_len, maxLabel);
 
-//        struct timespec time0 = {0, 0};
-//        clock_gettime(CLOCK_REALTIME, &time0);
-//        std::cout << "cost time passed is: " << (time0.tv_sec - time1.tv_sec)*1000 + (time0.tv_nsec - time1.tv_nsec)/1000000 << "ms" << std::endl;
-//        cv_time += ((time0.tv_sec - time1.tv_sec)*1000 + (time0.tv_nsec - time1.tv_nsec)/1000000);
-
         tmp = (clock()-start)/CLOCKS_PER_SEC;
         cm_time += tmp;
         // printf("convex maxtrix time %.2lf\n", tmp);
 
         getConnectCostMatrixArrayToArray(grid_asses, cluster_labels, Cn_cost_matrix, N, num, square_len, maxLabel);
+
+        getCompactCostMatrixArrayToArray(grid_asses, cluster_labels, Compact_cost_matrix, N, num, square_len, maxLabel);
 
         if(alter&&(type=="Global")){    // auto adjust alpha and beta
             double dec_Similar = std::max(0.0, last_cost[1]-alter_best[0])/alter_best[2]+0.0001;
@@ -533,12 +509,6 @@ int maxit=10) {
 //            printf("new alpha: %.2lf %.2lf\n", alpha, beta);
             if(it==0)beta = ori_beta;
         }
-
-        // if((!alter)&&(type=="Global")&&(it>=maxit-1)&&(beta==1)) {
-        if((!alter)&&(type=="Global")&&(beta==1)) {
-            beta = 0.99;
-        }
-
         printf("it: %d new alpha: %.2lf %.2lf\n", it, alpha, beta);
 
         // calculate full cost matrix
@@ -571,11 +541,7 @@ int maxit=10) {
 
         start = clock();
 
-        std::string b_type = "km";
-        // if((type=="Global")&&(alter))b_type = "lap";
-        // std::cout << "type: " << b_type << std::endl;
-
-        std::vector<int> new_asses = solveBiMatchChange(new_cost_matrix, N, change, grid_asses, b_type);   // bi-graph match
+        std::vector<int> new_asses = solveBiMatchChange(new_cost_matrix, N, change, grid_asses);   // bi-graph match
 
         tmp = (clock()-start)/CLOCKS_PER_SEC;
         km_time += tmp;
@@ -586,11 +552,7 @@ int maxit=10) {
         for(int i=0;i<N;i++)old_grid_asses[i] = grid_asses[i];
         for(int i=0;i<N;i++)grid_asses[i] = new_asses[i];
 
-        if(((alter)||(beta>0))&&((!alter)||(it<maxit-1))) {
-        // if((alter)||(beta>0)) {
-            printf("re calculate comp\n");
-            getCompactCostMatrixArrayToArray(grid_asses, cluster_labels, Compact_cost_matrix, N, num, square_len, maxLabel);    // re calculate
-        }
+        getCompactCostMatrixArrayToArray(grid_asses, cluster_labels, Compact_cost_matrix, N, num, square_len, maxLabel);    // re calculate
 
         double cost = 2147483647;    // calculate the cost after bi-graph match
         std::vector<double> new_cost(4, 2147483647);
@@ -649,17 +611,13 @@ int maxit=10) {
         for(int i=0;i<N;i++)if(cluster_labels[grid_asses[i]]!=cluster_labels[old_grid_asses[i]])change_num += 1;
 
         printf("cost %.2lf %.2lf %d\n", cost, c_cost, downCnt);
-        printf("cost prox %.2lf comp %.2lf\n", new_cost[1], new_cost[2]);
+//        printf("cost %.2lf %.2lf\n", new_cost[1], new_cost[2]);
 
         tmp = (clock()-start)/CLOCKS_PER_SEC;
         a_time += tmp;
         // printf("update time %.2lf\n", tmp);
 
-//       struct timespec time2 = {0, 0};
-//       clock_gettime(CLOCK_REALTIME, &time2);
-//       std::cout << "it time passed is: " << (time2.tv_sec - time1.tv_sec)*1000 + (time2.tv_nsec - time1.tv_nsec)/1000000 << "ms" << std::endl;
-
-        if((type=="T")||(type=="2020")) {   // case that need to ensure the connectivity in this function
+        if((type=="T")||(type=="2020")||(type=="Global")) {   // case that need to ensure the connectivity in this function
 //            if(((!alter)&&(c_best>0))||((alter)&&(last_c_cost>0))){
             if(c_best>0){
                 if(it >= maxit-1)maxit += 1;
@@ -677,22 +635,12 @@ int maxit=10) {
 
     // ----------------------------------iterater step done----------------------------------------
 
-//    clock_gettime(CLOCK_REALTIME, &tot_time2);
-//    std::cout << "it done time passed is: " << (tot_time2.tv_sec - tot_time1.tv_sec)*1000 + (tot_time2.tv_nsec - tot_time1.tv_nsec)/1000000 << "ms" << std::endl;
-
-    std::vector<double> ret(N+6, 0);
+    std::vector<double> ret(N+3, 0);
 
     for(int i=0;i<N;i++)ret[i] = ans[i];
     for(int i=0;i<3;i++)ret[N+i] = best_cost[i+1];
-    ret[N+3] = tot_it;
-    ret[N+4] = beta;
-    ret[N+5] = cv_time/1000;
-    printf("cv time %.3lf\n", cv_time/1000);
 
-//    clock_gettime(CLOCK_REALTIME, &tot_time2);
-//    std::cout << "ret time passed is: " << (tot_time2.tv_sec - tot_time1.tv_sec)*1000 + (tot_time2.tv_nsec - tot_time1.tv_nsec)/1000000 << "ms" << std::endl;
-
-    if((type=="T")&&(global_cnt>=0)){
+    if(global_cnt>=0){
         delete[] global_triples;
         delete[] global_triples_head;
         delete[] global_triples_list;
@@ -700,16 +648,10 @@ int maxit=10) {
         global_N = -1;
     }
 
-//    clock_gettime(CLOCK_REALTIME, &tot_time2);
-//    std::cout << "del time passed is: " << (tot_time2.tv_sec - tot_time1.tv_sec)*1000 + (tot_time2.tv_nsec - tot_time1.tv_nsec)/1000000 << "ms" << std::endl;
-
     delete[] save_innerDict;
     delete[] save_outerDict;
     delete[] old_grid_asses;
     delete[] T_pair;
-
-//    clock_gettime(CLOCK_REALTIME, &tot_time2);
-//    std::cout << "del2 time passed is: " << (tot_time2.tv_sec - tot_time1.tv_sec)*1000 + (tot_time2.tv_nsec - tot_time1.tv_nsec)/1000000 << "ms" << std::endl;
 
     delete[] checked;
     delete[] grid_asses;
@@ -717,10 +659,6 @@ int maxit=10) {
     delete[] ori_embedded;
     delete[] cluster_labels;
     delete[] change;
-
-//    clock_gettime(CLOCK_REALTIME, &tot_time2);
-//    std::cout << "del3 time passed is: " << (tot_time2.tv_sec - tot_time1.tv_sec)*1000 + (tot_time2.tv_nsec - tot_time1.tv_nsec)/1000000 << "ms" << std::endl;
-
     delete[] Similar_cost_matrix;
     delete[] Compact_cost_matrix;
     delete[] Convex_cost_matrix;
@@ -728,10 +666,6 @@ int maxit=10) {
     delete[] Cn_cost_matrix;
     delete[] new_cost_matrix;
     delete[] ans;
-
-//    clock_gettime(CLOCK_REALTIME, &tot_time2);
-//    std::cout << "tot time passed is: " << (tot_time2.tv_sec - tot_time1.tv_sec)*1000 + (tot_time2.tv_nsec - tot_time1.tv_nsec)/1000000 << "ms" << std::endl;
-
     return ret;
 }
 
@@ -818,7 +752,6 @@ int maxit=10, int choose_k=1, int seed=10, bool innerBiMatch=true, int swap_cnt=
     int check_turns2 = 0;
     int once_flag = 1;
     double s_time = 0;
-    double sp_time = 0;
     double a_time = 0;
 
     bool use_knn = false;
@@ -859,7 +792,6 @@ int maxit=10, int choose_k=1, int seed=10, bool innerBiMatch=true, int swap_cnt=
                 for(int i=0;i<N;i++){
                     order1[i] = i;
                 }
-
                 std::random_shuffle(order1, order1+N);    //shuffle the order
 
                 for(int gid1_o=0;gid1_o<N;gid1_o++){    //enumerate bar1
@@ -930,7 +862,7 @@ int maxit=10, int choose_k=1, int seed=10, bool innerBiMatch=true, int swap_cnt=
                             int y2 = gid2%square_len;
                             for(int ori=0;ori<2;ori++){
                                 if((ori>0)&&(now_num==1))continue;
-                                int now_gid2[100];
+                                int now_gid2[10];
                                 if((ori==0)&&(x2>=now_num-1)){    //V bar
                                     for(int i=0;i<now_num;i++)now_gid2[i] = gid2 - i*square_len;
                                 }else
@@ -1012,17 +944,11 @@ int maxit=10, int choose_k=1, int seed=10, bool innerBiMatch=true, int swap_cnt=
 
                         int best_gid = -1;    // best bar2
 
-//                        printf("worst cnt %d\n", worst_cnt);
-
-                        double tmp_start = clock();
-
-                        int tmp_th = std::min(THREADS_NUM, worst_cnt);
-                        #pragma omp parallel for num_threads(8)
                         for(int jj=0;jj<worst_cnt;jj++){    // enumerate candidate bar2
                             check_turns2 += 1;
                             int j = order2[jj];
 
-                            all_dec[j] = -1;
+                            all_dec[j] = 0;
 
                             int flag = 0;
                             for(int k1=0;k1<now_num;k1++)
@@ -1040,12 +966,8 @@ int maxit=10, int choose_k=1, int seed=10, bool innerBiMatch=true, int swap_cnt=
                             if(id2<num)lb2 = cluster_labels[id2];
                             if(lb1==lb2)continue;    // same cluster
 
-                            int *tmp_grid_asses = new int[N];
-                            int *tmp_checked = new int[N];
-                            memcpy(tmp_grid_asses, grid_asses, N*sizeof(int));
-
                             for(int k=0;k<now_num;k++){    //swap
-                                std::swap(tmp_grid_asses[ori_gid1[k]], tmp_grid_asses[worst_gid[j*now_num+k]]);
+                                std::swap(grid_asses[ori_gid1[k]], grid_asses[worst_gid[j*now_num+k]]);
                             }
 
                             double cost = 0;    // new cost
@@ -1053,38 +975,38 @@ int maxit=10, int choose_k=1, int seed=10, bool innerBiMatch=true, int swap_cnt=
                             double b_cost = 0;
 
                             if(type=="E")
-                                cost = checkCostForE(Similar_cost_matrix, Compact_cost_matrix, tmp_grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta)[0];
+                                cost = checkCostForE(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta)[0];
                             else if(type=="S")
-                                cost = checkCostForS(Similar_cost_matrix, Compact_cost_matrix, tmp_grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, label_pairs, lb1, lb2)[0];
+                                cost = checkCostForS(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, label_pairs, lb1, lb2)[0];
                             else if(type=="C")
-                                cost = checkCostForC(Similar_cost_matrix, Compact_cost_matrix, tmp_grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, label_pairs, lb1, lb2)[0];
+                                cost = checkCostForC(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, label_pairs, lb1, lb2)[0];
                             else if(type=="2020")
-                                cost = checkCostFor2020(Similar_cost_matrix, Compact_cost_matrix, tmp_grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, label_pairs, lb1, lb2)[0];
+                                cost = checkCostFor2020(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, label_pairs, lb1, lb2)[0];
                             else if(type=="TB")
-                                cost = checkCostForTB(Similar_cost_matrix, Compact_cost_matrix, tmp_grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, label_pairs, lb1, lb2)[0];
+                                cost = checkCostForTB(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, label_pairs, lb1, lb2)[0];
                             else if(type=="T")
-                                cost = checkCostForT(Similar_cost_matrix, Compact_cost_matrix, tmp_grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, old_grid_asses, old_T_pair)[0];
+                                cost = checkCostForT(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, old_grid_asses, old_T_pair)[0];
                             else if(type=="T2")
-                                cost = checkCostForT2(Similar_cost_matrix, Compact_cost_matrix, tmp_grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, old_grid_asses, old_T_pair, old_D_pair)[0];
+                                cost = checkCostForT2(Similar_cost_matrix, Compact_cost_matrix, grid_asses, cluster_labels, N, num, square_len, maxLabel, alpha, beta, false, true, old_grid_asses, old_T_pair, old_D_pair)[0];
 
-                            c_cost = N*checkConnectForAll(tmp_grid_asses, cluster_labels, tmp_checked, N, num, square_len, maxLabel);
+                            c_cost = N*checkConnectForAll(grid_asses, cluster_labels, checked, N, num, square_len, maxLabel);
 
                             for(int k=0;k<now_num;k++){
-                                b_cost -= 0.000001*checkBlankForGrid(ori_gid1[k], tmp_grid_asses, cluster_labels, N, num, square_len, maxLabel);
+                                b_cost -= 0.000001*checkBlankForGrid(ori_gid1[k], grid_asses, cluster_labels, N, num, square_len, maxLabel);
                             }
                             for(int k=0;k<now_num;k++){
-                                b_cost -= 0.000001*checkBlankForGrid(worst_gid[j*now_num+k], tmp_grid_asses, cluster_labels, N, num, square_len, maxLabel);
+                                b_cost -= 0.000001*checkBlankForGrid(worst_gid[j*now_num+k], grid_asses, cluster_labels, N, num, square_len, maxLabel);
                             }
 
                             for(int k=0;k<now_num;k++){    //swap back
-                                std::swap(tmp_grid_asses[ori_gid1[k]], tmp_grid_asses[worst_gid[j*now_num+k]]);
+                                std::swap(grid_asses[ori_gid1[k]], grid_asses[worst_gid[j*now_num+k]]);
                             }
 
                             for(int k=0;k<now_num;k++){
-                                b_cost += 0.000001*checkBlankForGrid(ori_gid1[k], tmp_grid_asses, cluster_labels, N, num, square_len, maxLabel);
+                                b_cost += 0.000001*checkBlankForGrid(ori_gid1[k], grid_asses, cluster_labels, N, num, square_len, maxLabel);
                             }
                             for(int k=0;k<now_num;k++){
-                                b_cost += 0.000001*checkBlankForGrid(worst_gid[j*now_num+k], tmp_grid_asses, cluster_labels, N, num, square_len, maxLabel);
+                                b_cost += 0.000001*checkBlankForGrid(worst_gid[j*now_num+k], grid_asses, cluster_labels, N, num, square_len, maxLabel);
                             }
 
                             all_cost[j] = cost;
@@ -1092,37 +1014,13 @@ int maxit=10, int choose_k=1, int seed=10, bool innerBiMatch=true, int swap_cnt=
                             all_b_cost[j] = b_cost;
                             all_dec[j] = ori_cost + ori_c_cost - cost - c_cost - b_cost;
 
-//                            if(cost+c_cost+b_cost<now_best+now_c_best+now_b_best){
-//                                now_best = cost;
-//                                now_c_best = c_cost;
-//                                now_b_best = b_cost;
-//                                best_gid = j;
-//                            }
-
-                            // printf("done swap\n");
-
-                            delete[] tmp_grid_asses;
-                            delete[] tmp_checked;
-                        }
-
-                        for(int jj=0;jj<worst_cnt;jj++){    // enumerate candidate bar2
-
-                            check_turns2 += 1;
-                            int j = order2[jj];
-
-                            double cost = all_cost[j];
-                            double c_cost = all_c_cost[j];
-                            double b_cost = all_b_cost[j];
-
-                            if(ori_cost + ori_c_cost - all_dec[j]<now_best+now_c_best+now_b_best){
+                            if(cost+c_cost+b_cost<now_best+now_c_best+now_b_best){
                                 now_best = cost;
                                 now_c_best = c_cost;
                                 now_b_best = b_cost;
                                 best_gid = j;
                             }
                         }
-
-                        sp_time += (clock()-tmp_start)/CLOCKS_PER_SEC;
 
                         if(best_gid!=-1){    // choose the best bar2 to swap
 
@@ -1252,9 +1150,8 @@ int maxit=10, int choose_k=1, int seed=10, bool innerBiMatch=true, int swap_cnt=
         for(int i=0;i<N;i++)ans[i] = new_grid_asses[i];
     }
     // printf("check turns %d %d\n", check_turns1, check_turns2);
-//     printf("tot swap time %.2lf\n", s_time);
-//     printf("tot swap2 time %.2lf\n", sp_time);
-//     printf("tot addition time %.2lf\n", a_time);
+    // printf("tot swap time %.2lf\n", s_time);
+    // printf("tot addition time %.2lf\n", a_time);
 
     // printf("final cost\n");
     std::vector<double> cost(4, -1);
@@ -1879,21 +1776,6 @@ int testrand() {
     return rand();
 }
 
-void testmem() {
-    srand(10);
-    int* a = new int[5];
-    memset(a, 0, 5*sizeof(int));
-    for(int i=0;i<5;i++)printf("%d\n", a[i]);
-    int* b = new int[6];
-    memset(b, 0, 6*sizeof(int));
-    memset(b, 2, 4*sizeof(int));
-    memcpy(b, a, 3*sizeof(int));
-    for(int i=0;i<6;i++)printf("%d\n", b[i]);
-
-    delete[] a;
-    delete[] b;
-    return;
-}
 
 PYBIND11_MODULE(gridlayoutOpt, m) {
     m.doc() = "Gridlayout Optimizer"; // optional module docstring
@@ -1916,5 +1798,4 @@ PYBIND11_MODULE(gridlayoutOpt, m) {
     m.def("find_alpha", &find_alpha, "A function");
     m.def("testomp", &testomp, "A function");
     m.def("testrand", &testrand, "A function");
-    m.def("testmem", &testmem, "A function");
 }

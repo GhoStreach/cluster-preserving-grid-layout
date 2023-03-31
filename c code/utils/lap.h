@@ -3,7 +3,7 @@
 #include <limits>
 #include <memory>
 #include <vector>
-#include "knn.h"
+#include "knn_ac.h"
 
 #ifdef __GNUC__
 #define always_inline __attribute__((always_inline)) inline
@@ -239,10 +239,10 @@ cost lap(int dim, const cost *restrict _assign_cost, bool verbose,
   }
 
   if(k_value<dim)
-    knn_sparse(assign_cost, dim, dim, k_value, false, 0);
+    knn_sparse(assign_cost, dim, dim, k_value, false, 0, -1);
 
   for (int i = 0; i < dim * dim; i++){
-    if (assign_cost[i] < 1e-6){
+    if (assign_cost[i] < -0.5){
       assign_cost[i] = INF;
     }
   }
