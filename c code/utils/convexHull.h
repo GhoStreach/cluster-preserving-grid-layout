@@ -1,148 +1,144 @@
-#include <cstdlib>
-#include <cstring>
-#include <cstdio>
-#include <algorithm>
+#ifndef _CONVEXHULL_H
+#define _CONVEXHULL_H
+
+#include <iostream>
 #include <vector>
-#include <numeric>
-// #include <windows.h>
-// #include <omp.h>
+#include <utility>
+#include <ctime>
+#include <algorithm>
+#include <math.h>
+#include "base.h"
 
-std::vector<size_t> sort_indexes(const std::vector<float> &v) {
-  //initialize original index locations
-  std::vector<size_t> idx(v.size());
-  iota(idx.begin(), idx.end(), 0);
-  //sort indexes based on comparing values in v
-  std::stable_sort(idx.begin(), idx.end(),
-    [&v](size_t i1, size_t i2) {return v[i1] < v[i2]; });
-  return idx;
+struct CH_node {
+    int id;
+    double x;
+    double y;
+    double dist;
+};
+
+double Distance(const double nodes[][2], int a, int b)
+{
+    return std::sqrt((nodes[a][0]-nodes[b][0])*(nodes[a][0]-nodes[b][0])+(nodes[a][1]-nodes[b][1])*(nodes[a][1]-nodes[b][1]));
 }
 
-std::vector<size_t> sort_indexes(const std::vector<int> &v) {
-  //initialize original index locations
-  std::vector<size_t> idx(v.size());
-  iota(idx.begin(), idx.end(), 0);
-  //sort indexes based on comparing values in v
-  std::stable_sort(idx.begin(), idx.end(),
-    [&v](size_t i1, size_t i2) {return v[i1] < v[i2]; });
-  return idx;
+double Multiply0(const struct CH_node &b, const struct CH_node &c)
+{
+    return(b.x*c.y-b.y*c.x);
 }
 
-void knn_sparse(float* cost_matrix, int n, int m, int k, bool sorted, int* sort_index_matrix, float fill_value=0) {
+double Multiply(const struct CH_node &a, const struct CH_node &b, const struct CH_node &c)
+{
+    return((b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x));
+}
 
-  // DWORD st, ed;
-  // st = GetTickCount();
+bool cmp(const struct CH_node &x, const struct CH_node &y){
+    double m;
+    m = Multiply0(x, y);
+    if(m>0)return true;
+    else if(m==0&&(x.dist<y.dist))
+        return true;
+    else return false;
+}
 
-  bool* connected = new bool[n * m];
-  memset(connected, false, n * m * sizeof(bool));
-  std::vector<size_t>* radish_sort_dist_index = new std::vector<size_t>[m];
-  int* hole_count = new int[n];
-  memset(hole_count, 0, n * sizeof(int));
-  int* radish_toCheck = new int[m];
 
-  if (!sorted) {
-// #pragma omp parallel for 
-    for (int j = 0; j < m; ++j) {
-      std::vector<float> col;
-      for (int i = 0; i < n; ++i) {
-        col.push_back(cost_matrix[m * i + j]);
-      }
-      // col_sort = sort_indexes(col);
-      radish_sort_dist_index[j] = sort_indexes(col);
-      radish_toCheck[j] = k;
-    }
-    for (int j = 0; j < m; ++j) {
-      for (int c = 0; c < k; ++c) {
-        hole_count[radish_sort_dist_index[j][c]] += 1;
-        connected[radish_sort_dist_index[j][c] * m + j] = true;
-      }
-    }
-  } else {
-// #pragma omp parallel for 
-    // sort_index_matrix: shape = m * n
-    for (int j = 0; j < m; ++j) {
-      radish_sort_dist_index[j] = std::vector<size_t>(sort_index_matrix + (j * n), sort_index_matrix + ((j + 1) * n));
-      radish_toCheck[j] = k;
-    }
-    for (int j = 0; j < m; ++j) {
-      for (int c = 0; c < k; ++c) {
-        hole_count[radish_sort_dist_index[j][c]] += 1;
-        connected[radish_sort_dist_index[j][c] * m + j] = true;
-      }
-    }
-  }
-
-  bool* connected_old = new bool[n * m];
-  memcpy(connected_old, connected, n * m * sizeof(bool));
-
-  // ed = GetTickCount();
-  // printf("Sort Time: %dms\n", ed - st);
-  std::vector<int> hc(hole_count, hole_count + n);
-  std::vector<size_t> hc_sort = sort_indexes(hc);
-  for (int i = n - 1; i >= 0; --i) {
-    int hole = hc_sort[i];
-    if (hole_count[hole] <= k) {
-      break;
-    }
-    bool* hole_connected_start = &connected[m * hole];
-    float* hole_cost_start = &cost_matrix[m * hole];
-    std::vector<int> rs;
-    std::vector<float> distances;
-    for (int j = 0; j < m; ++j) {
-      if (hole_connected_start[j]) {
-        rs.push_back(j);
-        distances.push_back(hole_cost_start[j]);
-      }
-    }
-    std::vector<size_t> order = sort_indexes(distances);
-    for (int j = order.size() - 1; j >= 0 && hole_count[hole] > k; --j) {
-      int radish_idx = rs[order[j]];
-      int next_hole_to_assign;
-      while (true) {
-        if (radish_toCheck[radish_idx] == n) {
-          break;
+// N: num of vertexes
+// nodes[0..N-1][2]: vertex
+// return int M，it's the num of vertexes of convex hull
+// nodes will be modified，nodes[0..M-1][2] is the vertexes of convex hull in clockwise order
+int getConvexHull(int N, double nodes[][2]){
+    if(N<=2)return N;
+    
+    double px, py;
+    int p;
+    py=-1;
+    for(int i=0;i<N;i++)
+    {
+        if(py==-1||nodes[i][1]<py)
+        {
+            px=nodes[i][0];
+            py=nodes[i][1];
+            p=i;
         }
-        next_hole_to_assign = radish_sort_dist_index[radish_idx][radish_toCheck[radish_idx]];
-        radish_toCheck[radish_idx]++;
-        if (hole_count[next_hole_to_assign] < k && !connected[next_hole_to_assign * m + radish_idx]) {
-          hole_count[next_hole_to_assign]++;
-          connected[next_hole_to_assign * m + radish_idx] = true;
-          hole_count[hole]--;
-          hole_connected_start[radish_idx] = false;
-          break;
+        else if(nodes[i][1]==py&&nodes[i][0]<px)
+        {
+            px=nodes[i][0];
+            py=nodes[i][1];
+            p=i;
         }
-      }
     }
-  }
-  
-  for (int i = 0; i < n; ++i) {
-    float* tmp = &cost_matrix[m * i];
-    for (int j = 0; j < m; ++j) {
-      if ((!connected[i * m + j])&&(!connected_old[i * m + j])) {
-        tmp[j] = fill_value;
-      }
+    double tmp=nodes[0][0]; nodes[0][0]=nodes[p][0]; nodes[p][0]=tmp;
+    tmp=nodes[0][1]; nodes[0][1]=nodes[p][1]; nodes[p][1]=tmp;
+
+    double (*tmp_nodes)[2] = new double[N+1][2];
+    for(int i=0;i<N;i++){
+        tmp_nodes[i][0] = nodes[i][0];
+        tmp_nodes[i][1] = nodes[i][1];
     }
-  }
-  delete[] connected;
-  delete[] connected_old;
-  delete[] hole_count;
-  delete[] radish_sort_dist_index;
-  delete[] radish_toCheck;
-  // ed = GetTickCount();
-  // printf("Sparse Time: %dms\n", ed - st);
+    tmp_nodes[N][0] = tmp_nodes[0][0]; tmp_nodes[N][1] = tmp_nodes[0][1];
+
+    struct CH_node *a = new struct CH_node[N+1];
+
+    for(int i=0;i<N;i++){
+        a[i].id = i;
+        a[i].x = nodes[i][0]-nodes[0][0];
+        a[i].y = nodes[i][1]-nodes[0][1];
+        a[i].dist = getDist(a[i].x, a[i].y, 0, 0);
+    }
+    a[N].id = N; a[N].x = 0; a[N].y = 0; a[N].dist = 0;
+
+    std::sort(a+1, a+N, cmp);
+
+    int* order = new int[N+1];
+    int* order2 = new int[N+1];
+    order2[0] = 0;
+    order2[1] = 1;
+    order2[2] = 2;
+
+    int top=2;
+    for(int ii=3;ii<=N;ii++)
+    {
+        while(top>=1&&Multiply(a[order2[top-1]], a[order2[top]], a[ii])<=0)
+            top--;
+        order2[top+1] = ii;
+        top++;
+    }
+
+    for(int i=0;i<top;i++){
+        order[i] = a[order2[i]].id;
+        nodes[i][0] = tmp_nodes[order[i]][0];
+        nodes[i][1] = tmp_nodes[order[i]][1];
+    }
+
+    delete[] order;
+    delete[] order2;
+    delete[] tmp_nodes;
+    delete[] a;
+
+    return top;
 }
 
-// int main() {
-//   std::vector<float> a;
-//   a.push_back(1);
-//   a.push_back(2);
-//   a.push_back(1);
-//   a.push_back(2);
-//   a.push_back(1);
-//   a.push_back(2);
-//   a.push_back(1);
-//   a.push_back(2);
-//   std::vector<size_t> b = sort_indexes(a);
-//   for (int i = 0; i < b.size(); ++i) {
-//     printf("%d, ", b[i]);
-//   }
-// }
+// get the area of convex hull
+double getSofPoly(int N, double nodes[][2]){
+    if(N<=2)return 0;
+    double area = 0;
+    for(int i=0;i<N-1;i++){
+        double triArea = (nodes[i][0]*nodes[i+1][1] - nodes[i+1][0]*nodes[i][1])/2;
+        area += triArea;
+    }
+    double fn = (nodes[N-1][0]*nodes[0][1] - nodes[0][0]*nodes[N-1][1])/2;
+    return abs(area+fn);
+}
+
+// get the perimeter of convex hull
+double getCofPoly(int N, double nodes[][2]){
+    if(N<=1)return 0;
+    double C = 0;
+    for(int i=0;i<N-1;i++){
+        double edge = Distance(nodes, i, i+1);
+        C += edge;
+    }
+    double edge = Distance(nodes, N-1, 0);
+    return abs(C+edge);
+}
+
+#endif
